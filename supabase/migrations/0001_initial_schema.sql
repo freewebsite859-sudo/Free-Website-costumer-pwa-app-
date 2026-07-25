@@ -294,10 +294,23 @@ begin
 end;
 $$;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- Creating a trigger on auth.users requires ownership of that table, which the
+-- SQL editor role does not always have. Attempt it, but never let a permission
+-- error abort the whole migration (the editor runs this file in one
+-- transaction, so a hard failure would roll back every table above).
+--
+-- If this is skipped the app still works: it upserts the profile row on demand.
+do $$
+begin
+  execute 'drop trigger if exists on_auth_user_created on auth.users';
+  execute 'create trigger on_auth_user_created
+             after insert on auth.users
+             for each row execute function public.handle_new_user()';
+  raise notice 'Created trigger on auth.users';
+exception
+  when insufficient_privilege or undefined_table then
+    raise warning 'Skipped auth.users trigger (%): profiles will be created by the app instead.', sqlerrm;
+end $$;
 
 -- ===========================================================================
 -- ROW LEVEL SECURITY

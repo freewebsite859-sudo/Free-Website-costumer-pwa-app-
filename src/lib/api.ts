@@ -97,6 +97,29 @@ export interface ProfileData {
   location: UserLocation | null;
 }
 
+/**
+ * Ensures a profile row exists for the signed-in user.
+ *
+ * Normally the `on_auth_user_created` trigger does this, but that trigger needs
+ * ownership of `auth.users` and is skipped on projects where the SQL editor
+ * lacks that privilege. Creating it lazily here keeps those projects working.
+ */
+export async function ensureProfile(
+  userId: string,
+  defaults: { email?: string | null; fullName?: string | null } = {},
+): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from('profiles').upsert(
+    {
+      id: userId,
+      ...(defaults.fullName ? { full_name: defaults.fullName } : {}),
+      ...(defaults.email ? { email: defaults.email } : {}),
+    },
+    { onConflict: 'id', ignoreDuplicates: true },
+  );
+  if (error) throw new Error(`Failed to initialise profile: ${error.message}`);
+}
+
 export async function fetchProfile(userId: string): Promise<ProfileData | null> {
   const sb = requireSupabase();
   const { data, error } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();

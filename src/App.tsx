@@ -284,6 +284,18 @@ export default function App() {
   const userIdRef = useRef<string | null>(userId);
   userIdRef.current = userId;
 
+  // Make sure this account has a profile row even when the auth.users trigger
+  // could not be installed (see 0001_initial_schema.sql).
+  useEffect(() => {
+    if (!userId) return;
+    void api
+      .ensureProfile(userId, {
+        email: user?.email ?? null,
+        fullName: (user?.user_metadata?.full_name as string | undefined) ?? null,
+      })
+      .catch((e) => console.error('[profile] ensure failed', e));
+  }, [userId, user]);
+
   // Timers that must be cancelled on unmount so they never call setState on a
   // dead component (and so a pending "snooze" doesn't fire after logout).
   const timeoutsRef = useRef<number[]>([]);

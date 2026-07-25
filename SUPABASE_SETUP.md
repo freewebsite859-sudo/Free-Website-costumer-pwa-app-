@@ -118,6 +118,13 @@ restarted. Check `import.meta.env.VITE_SUPABASE_URL` in the console.
 **Login says “Email not confirmed”** — confirm via the emailed link, or turn
 off *Confirm email* while testing.
 
+**`relation "public.salons" does not exist`** — `0001_initial_schema.sql` did not
+finish. The SQL editor runs the file in a single transaction, so one failed
+statement rolls back *every* table. Re-run `0001` and read the **Notices/Results**
+pane: a `warning: Skipped auth.users trigger` line is expected and harmless
+(the app creates profile rows itself). Any other error is the real cause —
+fix it, then run `0001` again followed by `0002`.
+
 **Empty salon list** — run `0002_seed_catalog.sql`. The app falls back to
 bundled mock data if the fetch fails, so also check the Network tab for 401s
 (bad key) or an RLS policy error.
