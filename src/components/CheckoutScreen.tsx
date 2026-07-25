@@ -1,0 +1,304 @@
+import React, { useState } from 'react';
+import { Salon, Service, Staff } from '../types';
+
+interface CheckoutScreenProps {
+  salon: Salon;
+  selectedServices: Service[];
+  selectedStaff: Staff | null;
+  onConfirmBooking: (bookingDetails: {
+    salon: Salon;
+    services: Service[];
+    totalAmount: number;
+    dateStr: string;
+    timeSlot: string;
+    staffName?: string;
+  }) => void;
+  onBack: () => void;
+}
+
+export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
+  salon,
+  selectedServices,
+  selectedStaff,
+  onConfirmBooking,
+  onBack,
+}) => {
+  const [selectedDateIdx, setSelectedDateIdx] = useState<number>(0);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('11:00 AM');
+  const [currentMonthYear, setCurrentMonthYear] = useState<string>('July 2024');
+
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+
+  // Generate 7 days starting from Wednesday July 24
+  const dateOptions = [
+    { dayName: 'Wed', dateNum: '24', fullDate: 'Wed 24 Jul', isAvailable: true },
+    { dayName: 'Thu', dateNum: '25', fullDate: 'Thu 25 Jul', isAvailable: true },
+    { dayName: 'Fri', dateNum: '26', fullDate: 'Fri 26 Jul', isAvailable: true },
+    { dayName: 'Sat', dateNum: '27', fullDate: 'Sat 27 Jul', isAvailable: true },
+    { dayName: 'Sun', dateNum: '28', fullDate: 'Sun 28 Jul', isAvailable: false },
+    { dayName: 'Mon', dateNum: '29', fullDate: 'Mon 29 Jul', isAvailable: true },
+    { dayName: 'Tue', dateNum: '30', fullDate: 'Tue 30 Jul', isAvailable: true },
+  ];
+
+  const timeSlots = {
+    morning: [
+      { time: '09:00 AM', disabled: true },
+      { time: '09:30 AM', disabled: true },
+      { time: '10:00 AM', disabled: false },
+      { time: '10:30 AM', disabled: false },
+      { time: '11:00 AM', disabled: false },
+      { time: '11:30 AM', disabled: false },
+    ],
+    afternoon: [
+      { time: '12:00 PM', disabled: false },
+      { time: '12:30 PM', disabled: false },
+      { time: '01:00 PM', disabled: false },
+      { time: '02:00 PM', disabled: false },
+      { time: '03:00 PM', disabled: true },
+      { time: '04:30 PM', disabled: false },
+    ],
+    evening: [
+      { time: '05:00 PM', disabled: false },
+      { time: '06:00 PM', disabled: false },
+      { time: '07:00 PM', disabled: false },
+    ],
+  };
+
+  const activeDateObj = dateOptions[selectedDateIdx] || dateOptions[0];
+
+  const handleReviewBooking = () => {
+    onConfirmBooking({
+      salon,
+      services: selectedServices,
+      totalAmount: totalPrice,
+      dateStr: activeDateObj.fullDate,
+      timeSlot: selectedTimeSlot,
+      staffName: selectedStaff?.name,
+    });
+  };
+
+  return (
+    <div className="flex flex-col w-full relative min-h-screen bg-[#fff8f8] pb-32">
+      {/* Fixed Top Header */}
+      <header className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe max-w-md mx-auto">
+        <div className="flex items-center h-16 px-4 gap-1">
+          <button
+            onClick={onBack}
+            className="w-10 h-10 flex items-center justify-center text-[#26181c] hover:text-[#e6007e] transition-colors"
+            aria-label="Back"
+          >
+            <span className="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+          </button>
+          <h1 className="text-[18px] font-semibold text-[#26181c]">Checkout</h1>
+        </div>
+      </header>
+
+      <main className="pt-16 flex-1 flex flex-col">
+        {/* Progress Indicator Steps */}
+        <div className="px-5 py-4 bg-white border-b border-[#fce2e7]">
+          <div className="flex justify-between items-center relative z-10 mb-2">
+            <div className="w-8 h-8 rounded-full bg-[#e6007e] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              <span className="material-symbols-outlined text-[16px]">check</span>
+            </div>
+            <div className="flex-1 h-1 bg-[#e6007e] mx-2 rounded-full" />
+            <div className="w-8 h-8 rounded-full bg-[#e6007e] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              <span className="material-symbols-outlined text-[16px]">check</span>
+            </div>
+            <div className="flex-1 h-1 bg-[#e6007e] mx-2 rounded-full" />
+            <div className="w-8 h-8 rounded-full bg-[#8e004b] text-white flex items-center justify-center font-bold text-xs ring-4 ring-[#8e004b]/20">
+              3
+            </div>
+          </div>
+          <div className="flex justify-between items-center text-[12px] text-[#5a3f47] font-medium px-1">
+            <span>Service</span>
+            <span>Staff</span>
+            <span className="text-[#8e004b] font-bold">Time</span>
+          </div>
+        </div>
+
+        {/* Month Header */}
+        <div className="px-5 py-4 flex justify-between items-center bg-[#fff8f8]">
+          <h2 className="text-[18px] font-bold text-[#26181c]">{currentMonthYear}</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentMonthYear('June 2024')}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#ffe8ed] text-[#26181c] hover:bg-[#f6dce2] transition-colors"
+              aria-label="Previous Month"
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <button
+              onClick={() => setCurrentMonthYear('August 2024')}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#ffe8ed] text-[#26181c] hover:bg-[#f6dce2] transition-colors"
+              aria-label="Next Month"
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Date Horizontal Selector */}
+        <div className="overflow-x-auto hide-scrollbar pb-4 px-5">
+          <div className="flex gap-3 w-max">
+            {dateOptions.map((item, idx) => {
+              const isSelected = selectedDateIdx === idx;
+              if (!item.isAvailable) {
+                return (
+                  <button
+                    key={idx}
+                    disabled
+                    className="flex flex-col items-center justify-center w-16 h-20 rounded-2xl bg-[#ffe8ed]/40 text-[#26181c]/30 cursor-not-allowed"
+                  >
+                    <span className="text-[11px] uppercase tracking-wider font-medium">{item.dayName}</span>
+                    <span className="text-[20px] font-bold mt-1">{item.dateNum}</span>
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedDateIdx(idx)}
+                  className={`flex flex-col items-center justify-center w-16 h-20 rounded-2xl transition-all active:scale-95 ${
+                    isSelected
+                      ? 'bg-[#8e004b] text-white shadow-lg shadow-[#8e004b]/20 scale-105 font-bold'
+                      : 'bg-[#ffe8ed] text-[#26181c] hover:bg-[#fce2e7]'
+                  }`}
+                >
+                  <span className={`text-[11px] uppercase tracking-wider ${isSelected ? 'opacity-90' : 'text-[#5a3f47]'}`}>
+                    {item.dayName}
+                  </span>
+                  <span className="text-[20px] font-bold mt-1">{item.dateNum}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Time Slots Section */}
+        <div className="px-5 py-6 bg-[#fcf9f8] rounded-t-[28px] shadow-[0_-4px_24px_rgba(0,0,0,0.03)] flex-1">
+          {/* Morning */}
+          <div className="mb-6">
+            <h3 className="text-[15px] font-semibold text-[#5a3f47] flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[20px] text-amber-500">light_mode</span> Morning
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {timeSlots.morning.map((slot) => {
+                const isSelected = selectedTimeSlot === slot.time;
+                if (slot.disabled) {
+                  return (
+                    <button
+                      key={slot.time}
+                      disabled
+                      className="h-12 rounded-xl bg-white text-[#26181c]/30 font-medium text-[14px] line-through cursor-not-allowed shadow-sm"
+                    >
+                      {slot.time}
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={slot.time}
+                    onClick={() => setSelectedTimeSlot(slot.time)}
+                    className={`h-12 rounded-xl text-[14px] font-medium shadow-sm transition-all active:scale-95 ${
+                      isSelected
+                        ? 'bg-[#8e004b] text-white font-bold ring-2 ring-[#8e004b] ring-offset-2 ring-offset-[#fcf9f8] scale-105 shadow-md'
+                        : 'bg-white text-[#26181c] hover:bg-[#fde7f3] hover:text-[#e6007e]'
+                    }`}
+                  >
+                    {slot.time}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Afternoon */}
+          <div className="mb-6">
+            <h3 className="text-[15px] font-semibold text-[#5a3f47] flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[20px] text-orange-500">wb_sunny</span> Afternoon
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {timeSlots.afternoon.map((slot) => {
+                const isSelected = selectedTimeSlot === slot.time;
+                if (slot.disabled) {
+                  return (
+                    <button
+                      key={slot.time}
+                      disabled
+                      className="h-12 rounded-xl bg-white text-[#26181c]/30 font-medium text-[14px] line-through cursor-not-allowed shadow-sm"
+                    >
+                      {slot.time}
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={slot.time}
+                    onClick={() => setSelectedTimeSlot(slot.time)}
+                    className={`h-12 rounded-xl text-[14px] font-medium shadow-sm transition-all active:scale-95 ${
+                      isSelected
+                        ? 'bg-[#8e004b] text-white font-bold ring-2 ring-[#8e004b] ring-offset-2 ring-offset-[#fcf9f8] scale-105 shadow-md'
+                        : 'bg-white text-[#26181c] hover:bg-[#fde7f3] hover:text-[#e6007e]'
+                    }`}
+                  >
+                    {slot.time}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Evening */}
+          <div className="mb-6">
+            <h3 className="text-[15px] font-semibold text-[#5a3f47] flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[20px] text-indigo-500">bedtime</span> Evening
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {timeSlots.evening.map((slot) => {
+                const isSelected = selectedTimeSlot === slot.time;
+                return (
+                  <button
+                    key={slot.time}
+                    onClick={() => setSelectedTimeSlot(slot.time)}
+                    className={`h-12 rounded-xl text-[14px] font-medium shadow-sm transition-all active:scale-95 ${
+                      isSelected
+                        ? 'bg-[#8e004b] text-white font-bold ring-2 ring-[#8e004b] ring-offset-2 ring-offset-[#fcf9f8] scale-105 shadow-md'
+                        : 'bg-white text-[#26181c] hover:bg-[#fde7f3] hover:text-[#e6007e]'
+                    }`}
+                  >
+                    {slot.time}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Sticky Bottom Summary Bar */}
+      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white/90 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] pb-safe z-40 max-w-md mx-auto border-t border-[#e8e8e8]">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div>
+            <p className="text-[12px] text-[#5a3f47] font-medium">Selected Time</p>
+            <p className="text-[16px] text-[#26181c] font-bold">
+              {activeDateObj.fullDate}, {selectedTimeSlot}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[12px] text-[#5a3f47] font-medium">Total</p>
+            <p className="text-[18px] text-[#e6007e] font-bold">₹{totalPrice}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleReviewBooking}
+          className="w-full h-[52px] bg-[#8e004b] text-white rounded-xl font-semibold text-[15px] shadow-lg hover:bg-[#e6007e] transition-all active:scale-95 flex items-center justify-center gap-2"
+        >
+          Review Booking
+          <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+        </button>
+      </div>
+    </div>
+  );
+};
