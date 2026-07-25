@@ -1,48 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { Address } from '../types';
+import { readJSON, writeJSON } from '../utils/storage';
+import { createId } from '../utils/id';
 
 interface SavedAddressesScreenProps {
   onBack: () => void;
-  onNavigate: (screen: any) => void;
 }
 
-export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
-  onBack,
-  onNavigate,
-}) => {
-  const [addresses, setAddresses] = useState<Address[]>(() => {
-    const saved = localStorage.getItem('nexora_saved_addresses');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'addr-1',
-        label: 'Home',
-        flatNumber: 'Apt 4B, The Zenith Apartments',
-        street: '124 Marina Boulevard',
-        city: 'San Francisco, CA',
-        pincode: '94123',
-        isDefault: true,
-      },
-      {
-        id: 'addr-2',
-        label: 'Work',
-        flatNumber: 'Nexora Headquarters, Floor 12',
-        street: '500 Tech Square',
-        city: 'San Francisco, CA',
-        pincode: '94105',
-        isDefault: false,
-      },
-      {
-        id: 'addr-3',
-        label: 'Mom\'s House',
-        flatNumber: '889 Pinecrest Drive',
-        street: 'Suburban Enclave',
-        city: 'San Mateo, CA',
-        pincode: '94401',
-        isDefault: false,
-      },
-    ];
-  });
+const ADDRESSES_KEY = 'nexora_saved_addresses';
+
+const DEFAULT_ADDRESSES: Address[] = [
+    {
+      id: 'addr-1',
+      label: 'Home',
+      flatNumber: 'Apt 4B, 4th Floor',
+      street: 'Hill Road, Bandra West',
+      landmark: 'Opposite Elco Arcade',
+      city: 'Mumbai',
+      pincode: '400050',
+      isDefault: true,
+    },
+    {
+      id: 'addr-2',
+      label: 'Office',
+      flatNumber: 'Godrej One, 3rd Floor',
+      street: 'Vikhroli East',
+      landmark: 'Near Eastern Express Highway',
+      city: 'Mumbai',
+      pincode: '400079',
+      isDefault: false,
+    },
+];
+
+export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({ onBack }) => {
+  const [addresses, setAddresses] = useState<Address[]>(() =>
+    readJSON<Address[]>(ADDRESSES_KEY, DEFAULT_ADDRESSES, (v): v is Address[] => Array.isArray(v)),
+  );
+
 
   const [view, setView] = useState<'list' | 'form'>('list');
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
@@ -52,14 +46,14 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
   const [formFlatNumber, setFormFlatNumber] = useState<string>('');
   const [formStreet, setFormStreet] = useState<string>('');
   const [formLandmark, setFormLandmark] = useState<string>('');
-  const [formCity, setFormCity] = useState<string>('San Francisco, CA');
+  const [formCity, setFormCity] = useState<string>('Mumbai');
   const [formPincode, setFormPincode] = useState<string>('');
   const [formIsDefault, setFormIsDefault] = useState<boolean>(false);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('nexora_saved_addresses', JSON.stringify(addresses));
+    writeJSON(ADDRESSES_KEY, addresses);
   }, [addresses]);
 
   const triggerToast = (msg: string) => {
@@ -80,9 +74,10 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
   const handleDelete = (id: string) => {
     setAddresses((prev) => {
       const filtered = prev.filter((a) => a.id !== id);
-      // If default was deleted, make first remaining address default
+      // If the default was deleted, promote the first remaining address.
+      // Note: map to a new object rather than mutating the existing state entry.
       if (filtered.length > 0 && !filtered.some((a) => a.isDefault)) {
-        filtered[0].isDefault = true;
+        return filtered.map((a, idx) => (idx === 0 ? { ...a, isDefault: true } : a));
       }
       return filtered;
     });
@@ -105,7 +100,7 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
       setFormFlatNumber('');
       setFormStreet('');
       setFormLandmark('');
-      setFormCity('San Francisco, CA');
+      setFormCity('Mumbai');
       setFormPincode('');
       setFormIsDefault(addresses.length === 0);
     }
@@ -117,11 +112,11 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
     triggerToast('Determining GPS Coordinates...');
     setTimeout(() => {
       setIsLocating(false);
-      setFormFlatNumber('Apt 12B, Oceanview Towers');
-      setFormStreet('88 Marina Boulevard');
-      setFormCity('San Francisco, CA');
-      setFormPincode('94123');
-      setFormLandmark('Near Marina Park');
+      setFormFlatNumber('Apartment 402, Signature Towers');
+      setFormStreet('Bandra West');
+      setFormCity('Mumbai');
+      setFormPincode('400050');
+      setFormLandmark('Opposite Elco Arcade');
       triggerToast('GPS Address filled successfully!');
     }, 1200);
   };
@@ -155,7 +150,7 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
       } else {
         // Add mode
         const newAddress: Address = {
-          id: `addr-${Date.now()}`,
+          id: createId('addr'),
           ...newAddressData,
         };
         updated = [...prev, newAddress];
@@ -167,10 +162,8 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
           ...a,
           isDefault: selectedAddress ? (a.id === selectedAddress.id ? true : false) : (a.id === updated[updated.length - 1].id ? true : false),
         }));
-      } else if (!updated.some((a) => a.isDefault)) {
-        if (updated.length > 0) {
-          updated[0].isDefault = true;
-        }
+      } else if (!updated.some((a) => a.isDefault) && updated.length > 0) {
+        updated = updated.map((a, idx) => (idx === 0 ? { ...a, isDefault: true } : a));
       }
 
       return updated;
@@ -193,9 +186,20 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
       {view === 'list' ? (
         <div className="flex flex-col gap-6">
           <div className="flex justify-between items-center">
-            <div>
+            <div className="flex items-center gap-2">
+              {/* `onBack` was declared but never rendered. */}
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-10 h-10 -ml-2 rounded-full bg-[#fde7f3]/60 hover:bg-[#fde7f3] flex items-center justify-center text-[#26181c] transition-colors active:scale-95 cursor-pointer shrink-0"
+                aria-label="Back to profile"
+              >
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+              </button>
+              <div>
               <h2 className="text-[22px] font-bold text-on-surface tracking-tight">Saved Addresses</h2>
               <p className="text-[13px] text-[#5a3f47] mt-1">Manage where we bring the salon to you.</p>
+              </div>
             </div>
             <button
               onClick={() => handleOpenForm()}
@@ -436,7 +440,7 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
                   type="text"
                   value={formCity}
                   onChange={(e) => setFormCity(e.target.value)}
-                  placeholder="San Francisco"
+                  placeholder="Mumbai"
                   className="w-full h-12 bg-white rounded-xl px-4 border border-[#e8e8e8] text-[13px] text-on-surface focus:outline-none focus:border-[#e6007e] transition-colors"
                   required
                 />
@@ -447,7 +451,7 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({
                   type="text"
                   value={formPincode}
                   onChange={(e) => setFormPincode(e.target.value)}
-                  placeholder="94123"
+                  placeholder="400050"
                   className="w-full h-12 bg-white rounded-xl px-4 border border-[#e8e8e8] text-[13px] text-on-surface focus:outline-none focus:border-[#e6007e] transition-colors"
                   required
                 />

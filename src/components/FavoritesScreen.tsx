@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Salon, Screen, SavedProfessional, SavedService } from '../types';
+
+interface SnackbarState {
+  visible: boolean;
+  message: string;
+  undoData?: {
+    type: 'salon' | 'professional' | 'service';
+    item: Salon | SavedProfessional | SavedService;
+  };
+}
 
 interface FavoritesScreenProps {
   salons: Salon[];
@@ -9,6 +18,9 @@ interface FavoritesScreenProps {
   onToggleFavoriteSalon: (salonId: string) => void;
   onToggleFavoriteProfessional: (proId: string) => void;
   onToggleFavoriteService: (serviceId: string) => void;
+  /** Restores a removed item when the user taps "Undo" on the snackbar. */
+  onRestoreProfessional: (pro: SavedProfessional) => void;
+  onRestoreService: (service: SavedService) => void;
   onSelectSalon: (salon: Salon) => void;
   onNavigate: (screen: Screen) => void;
 }
@@ -21,71 +33,71 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   onToggleFavoriteSalon,
   onToggleFavoriteProfessional,
   onToggleFavoriteService,
+  onRestoreProfessional,
+  onRestoreService,
   onSelectSalon,
   onNavigate,
 }) => {
   const [activeTab, setActiveTab] = useState<'salons' | 'professionals' | 'services'>('salons');
 
   // Snackbar state for Undo
-  const [snackbar, setSnackbar] = useState<{
-    visible: boolean;
-    message: string;
-    undoData?: {
-      type: 'salon' | 'professional' | 'service';
-      item: Salon | SavedProfessional | SavedService;
-    };
-  }>({
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
     visible: false,
     message: '',
   });
 
   const savedSalons = salons.filter((s) => favorites.includes(s.id));
 
+  // A single tracked timer: previously each removal started an untracked
+  // setTimeout that fired after unmount (React state-update warning) and
+  // rapid removals fought over the same snackbar.
+  const dismissTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (dismissTimerRef.current !== null) window.clearTimeout(dismissTimerRef.current);
+    },
+    [],
+  );
+
+  const showSnackbar = useCallback(
+    (message: string, undoData: SnackbarState['undoData']) => {
+      if (dismissTimerRef.current !== null) window.clearTimeout(dismissTimerRef.current);
+      setSnackbar({ visible: true, message, undoData });
+      dismissTimerRef.current = window.setTimeout(() => {
+        dismissTimerRef.current = null;
+        setSnackbar({ visible: false, message: '' });
+      }, 4000);
+    },
+    [],
+  );
+
   const handleRemoveSalon = (salon: Salon) => {
     onToggleFavoriteSalon(salon.id);
-    setSnackbar({
-      visible: true,
-      message: `Removed ${salon.name} from Favourites`,
-      undoData: { type: 'salon', item: salon },
-    });
-    setTimeout(() => {
-      setSnackbar((prev) => (prev.undoData?.item.id === salon.id ? { ...prev, visible: false } : prev));
-    }, 4000);
+    showSnackbar(`Removed ${salon.name} from Favourites`, { type: 'salon', item: salon });
   };
 
   const handleRemoveProfessional = (pro: SavedProfessional) => {
     onToggleFavoriteProfessional(pro.id);
-    setSnackbar({
-      visible: true,
-      message: `Removed ${pro.name} from Favourites`,
-      undoData: { type: 'professional', item: pro },
-    });
-    setTimeout(() => {
-      setSnackbar((prev) => (prev.undoData?.item.id === pro.id ? { ...prev, visible: false } : prev));
-    }, 4000);
+    showSnackbar(`Removed ${pro.name} from Favourites`, { type: 'professional', item: pro });
   };
 
   const handleRemoveService = (service: SavedService) => {
     onToggleFavoriteService(service.id);
-    setSnackbar({
-      visible: true,
-      message: `Removed ${service.name} from Favourites`,
-      undoData: { type: 'service', item: service },
-    });
-    setTimeout(() => {
-      setSnackbar((prev) => (prev.undoData?.item.id === service.id ? { ...prev, visible: false } : prev));
-    }, 4000);
+    showSnackbar(`Removed ${service.name} from Favourites`, { type: 'service', item: service });
   };
 
   const handleUndo = () => {
     if (!snackbar.undoData) return;
     const { type, item } = snackbar.undoData;
+    // `onToggleFavoriteProfessional`/`Service` only ever *remove* an entry, so
+    // calling them here used to make Undo a no-op. Restore the saved item instead.
     if (type === 'salon') {
       onToggleFavoriteSalon(item.id);
     } else if (type === 'professional') {
-      onToggleFavoriteProfessional(item.id);
+      onRestoreProfessional(item as SavedProfessional);
     } else if (type === 'service') {
-      onToggleFavoriteService(item.id);
+      onRestoreService(item as SavedService);
     }
     setSnackbar({ visible: false, message: '' });
   };
@@ -361,24 +373,48 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   );
 };
 
-function renderEmptyState(type: string, onNavigate: (screen: Screen) => void) {
+function renderEmptyState(
+  type: 'salons' | 'professionals' | 'services',
+  onNavigate: (screen: Screen) => void,
+) {
+  // The `type` argument was previously ignored, so all three tabs showed the
+  // identical "No favourites yet" salon copy.
+  const copy = {
+    salons: {
+      icon: 'storefront',
+      title: 'No saved salons yet',
+      body: 'Tap the heart on any salon to keep it here for quick rebooking.',
+      cta: 'Explore Salons',
+    },
+    professionals: {
+      icon: 'person_search',
+      title: 'No saved professionals yet',
+      body: 'Save your favourite stylists and therapists to book them again in one tap.',
+      cta: 'Find Professionals',
+    },
+    services: {
+      icon: 'content_cut',
+      title: 'No saved services yet',
+      body: 'Bookmark the treatments you love so they are always a tap away.',
+      cta: 'Browse Services',
+    },
+  }[type];
+
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center bg-white rounded-[28px] border border-[#e8e8e8]">
       <div className="w-24 h-24 mb-4 relative flex items-center justify-center">
         <div className="absolute inset-0 bg-[#e6007e]/10 rounded-full blur-xl" />
         <div className="relative w-20 h-20 bg-[#ffe8ed] rounded-full flex items-center justify-center text-[#e6007e]">
-          <span className="material-symbols-outlined text-[42px]">favorite_border</span>
+          <span className="material-symbols-outlined text-[42px]">{copy.icon}</span>
         </div>
       </div>
-      <h3 className="text-[20px] font-bold text-[#26181c] mb-2">No favourites yet</h3>
-      <p className="text-[14px] text-[#5a3f47] mb-8 max-w-[280px] leading-relaxed">
-        Save salons, services or professionals to find them quickly.
-      </p>
+      <h3 className="text-[20px] font-bold text-[#26181c] mb-2">{copy.title}</h3>
+      <p className="text-[14px] text-[#5a3f47] mb-8 max-w-[280px] leading-relaxed">{copy.body}</p>
       <button
         onClick={() => onNavigate('home')}
         className="w-full max-w-[240px] h-[52px] bg-[#e6007e] text-white text-[14px] font-semibold rounded-xl shadow-lg shadow-[#e6007e]/25 active:scale-95 transition-transform"
       >
-        Explore Salons
+        {copy.cta}
       </button>
     </div>
   );

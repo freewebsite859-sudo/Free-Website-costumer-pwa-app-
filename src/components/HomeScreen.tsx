@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Salon, Screen, UserLocation, Booking } from '../types';
 import { BANNER_URL, INITIAL_BOOKINGS } from '../data/mockData';
+import { readJSON } from '../utils/storage';
 
 interface HomeScreenProps {
   location: UserLocation;
@@ -49,13 +50,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Load user bookings from prop, local storage or mock to determine past service preferences
   const userBookings: Booking[] = useMemo(() => {
     if (bookings && bookings.length > 0) return bookings;
-    try {
-      const saved = localStorage.getItem('nexora_bookings');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed reading bookings', e);
-    }
-    return INITIAL_BOOKINGS;
+    return readJSON<Booking[]>('nexora_bookings', INITIAL_BOOKINGS, (v): v is Booking[] =>
+      Array.isArray(v),
+    );
   }, [bookings]);
 
   // Analysis Logic Block 1: Frequent Services from User Booking History

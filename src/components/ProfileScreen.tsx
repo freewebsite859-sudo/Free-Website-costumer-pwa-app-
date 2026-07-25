@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AVATAR_URL } from '../data/mockData';
 import { Screen, UserLocation, Booking, Address } from '../types';
+import { readJSON, readString, writeJSON, writeString } from '../utils/storage';
+import { createId } from '../utils/id';
 
 interface ProfileScreenProps {
   location: UserLocation;
@@ -72,6 +74,29 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
+const PROFILE_DEFAULT_ADDRESSES: Address[] = [
+    {
+      id: 'addr-1',
+      label: 'Home',
+      flatNumber: 'Apt 4B, 4th Floor',
+      street: 'Hill Road, Bandra West',
+      landmark: 'Opposite Elco Arcade',
+      city: 'Mumbai',
+      pincode: '400050',
+      isDefault: true,
+    },
+    {
+      id: 'addr-2',
+      label: 'Office',
+      flatNumber: 'Godrej One, 3rd Floor',
+      street: 'Vikhroli East',
+      landmark: 'Near Eastern Express Highway',
+      city: 'Mumbai',
+      pincode: '400079',
+      isDefault: false,
+    }
+];
+
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   location,
   favoritesCount,
@@ -80,20 +105,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenLocation,
 }) => {
   // Local states for customer profile
-  const [name, setName] = useState<string>(() => localStorage.getItem('profile_name') || 'Priya Sharma');
-  const [email, setEmail] = useState<string>(() => localStorage.getItem('profile_email') || 'priya.sharma@example.com');
-  const [phone, setPhone] = useState<string>(() => localStorage.getItem('profile_phone') || '+91 98765 43210');
-  const [avatar, setAvatar] = useState<string>(() => localStorage.getItem('profile_avatar') || AVATAR_URL);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => localStorage.getItem('profile_language') || 'English');
-  const [remindersEnabled, setRemindersEnabled] = useState<boolean>(() => localStorage.getItem('reminders_enabled') !== 'false');
-  const [autoPlayAmbiance, setAutoPlayAmbiance] = useState<boolean>(() => localStorage.getItem('autoplay_ambiance') === 'true');
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => (localStorage.getItem('profile_theme') as 'light' | 'dark') || 'light');
+  const [name, setName] = useState<string>(() => readString('profile_name') || 'Priya Sharma');
+  const [email, setEmail] = useState<string>(() => readString('profile_email') || 'priya.sharma@example.com');
+  const [phone, setPhone] = useState<string>(() => readString('profile_phone') || '+91 98765 43210');
+  const [avatar, setAvatar] = useState<string>(() => readString('profile_avatar') || AVATAR_URL);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => readString('profile_language') || 'English');
+  const [remindersEnabled, setRemindersEnabled] = useState<boolean>(() => readString('reminders_enabled') !== 'false');
+  const [autoPlayAmbiance, setAutoPlayAmbiance] = useState<boolean>(() => readString('autoplay_ambiance') === 'true');
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => (readString('profile_theme') as 'light' | 'dark') || 'light');
   
   // Custom high fidelity profile details states
-  const [dob, setDob] = useState<string>(() => localStorage.getItem('profile_dob') || '1992-05-14');
-  const [gender, setGender] = useState<string>(() => localStorage.getItem('profile_gender') || 'female');
-  const [preferredCity, setPreferredCity] = useState<string>(() => localStorage.getItem('profile_city') || 'mumbai');
-  const [preferredArea, setPreferredArea] = useState<string>(() => localStorage.getItem('profile_area') || 'Bandra West');
+  const [dob, setDob] = useState<string>(() => readString('profile_dob') || '1992-05-14');
+  const [gender, setGender] = useState<string>(() => readString('profile_gender') || 'female');
+  const [preferredCity, setPreferredCity] = useState<string>(() => readString('profile_city') || 'mumbai');
+  const [preferredArea, setPreferredArea] = useState<string>(() => readString('profile_area') || 'Bandra West');
 
   // Modal open states
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -112,42 +137,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [addressView, setAddressView] = useState<'list' | 'add' | 'edit'>('list');
   const [selectedAddressForEdit, setSelectedAddressForEdit] = useState<Address | null>(null);
 
-  const [savedAddresses, setSavedAddresses] = useState<Address[]>(() => {
-    const saved = localStorage.getItem('nexora_saved_addresses');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'addr-1',
-        label: 'Home',
-        flatNumber: 'Apt 4B, 4th Floor',
-        street: 'Hill Road, Bandra West',
-        landmark: 'Opposite Elco Arcade',
-        city: 'Mumbai',
-        pincode: '400050',
-        isDefault: true,
-      },
-      {
-        id: 'addr-2',
-        label: 'Office',
-        flatNumber: 'Godrej One, 3rd Floor',
-        street: 'Vikhroli East',
-        landmark: 'Near Eastern Express Highway',
-        city: 'Mumbai',
-        pincode: '400079',
-        isDefault: false,
-      }
-    ];
-  });
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>(() =>
+    readJSON<Address[]>('nexora_saved_addresses', PROFILE_DEFAULT_ADDRESSES, (v): v is Address[] =>
+      Array.isArray(v),
+    ),
+  );
 
+
+  // Re-sync when another screen (SavedAddressesScreen) edited the same key.
   React.useEffect(() => {
-    const saved = localStorage.getItem('nexora_saved_addresses');
-    if (saved) {
-      try {
-        setSavedAddresses(JSON.parse(saved));
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    const sync = () =>
+      setSavedAddresses(
+        readJSON<Address[]>('nexora_saved_addresses', PROFILE_DEFAULT_ADDRESSES, (v): v is Address[] =>
+          Array.isArray(v),
+        ),
+      );
+    window.addEventListener('focus', sync);
+    return () => window.removeEventListener('focus', sync);
   }, []);
 
   // Form states for adding/editing addresses
@@ -194,14 +200,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setPreferredCity(tempCity);
     setPreferredArea(tempArea);
 
-    localStorage.setItem('profile_name', tempName);
-    localStorage.setItem('profile_email', tempEmail);
-    localStorage.setItem('profile_phone', tempPhone);
-    localStorage.setItem('profile_avatar', tempAvatar);
-    localStorage.setItem('profile_dob', tempDob);
-    localStorage.setItem('profile_gender', tempGender);
-    localStorage.setItem('profile_city', tempCity);
-    localStorage.setItem('profile_area', tempArea);
+    writeString('profile_name', tempName);
+    writeString('profile_email', tempEmail);
+    writeString('profile_phone', tempPhone);
+    writeString('profile_avatar', tempAvatar);
+    writeString('profile_dob', tempDob);
+    writeString('profile_gender', tempGender);
+    writeString('profile_city', tempCity);
+    writeString('profile_area', tempArea);
 
     setIsEditOpen(false);
     triggerToast('Profile updated successfully!');
@@ -257,12 +263,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const handleDeleteAddress = (addrId: string) => {
-    const updated = savedAddresses.filter((a) => a.id !== addrId);
+    let updated = savedAddresses.filter((a) => a.id !== addrId);
+    // Promote a new default without mutating the previous state objects.
     if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
-      updated[0].isDefault = true;
+      updated = updated.map((a, idx) => (idx === 0 ? { ...a, isDefault: true } : a));
     }
     setSavedAddresses(updated);
-    localStorage.setItem('nexora_saved_addresses', JSON.stringify(updated));
+    writeJSON('nexora_saved_addresses', updated);
     triggerToast('Address deleted successfully!');
   };
 
@@ -272,7 +279,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       isDefault: a.id === addrId,
     }));
     setSavedAddresses(updated);
-    localStorage.setItem('nexora_saved_addresses', JSON.stringify(updated));
+    writeJSON('nexora_saved_addresses', updated);
     triggerToast('Default address updated!');
   };
 
@@ -286,7 +293,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
     if (addressView === 'add') {
       const newAddr: Address = {
-        id: `addr-${Date.now()}`,
+        id: createId('addr'),
         label: formLabel,
         flatNumber: formFlat,
         street: formStreet,
@@ -325,7 +332,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
 
     setSavedAddresses(updatedList);
-    localStorage.setItem('nexora_saved_addresses', JSON.stringify(updatedList));
+    writeJSON('nexora_saved_addresses', updatedList);
     setAddressView('list');
   };
 
@@ -444,6 +451,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <span className="material-symbols-outlined text-[14px] text-[#8c7077]">mail</span>
               {email}
             </p>
+            {/* Shows the live app location and opens the picker. The `location`
+                and `onOpenLocation` props were previously accepted but ignored. */}
+            <button
+              type="button"
+              onClick={onOpenLocation}
+              className="text-[12px] text-[#5a3f47] mt-1 flex items-center gap-1 truncate hover:text-[#e6007e] transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[14px] text-[#e6007e]">location_on</span>
+              <span className="truncate">{[location.area, location.city].filter(Boolean).join(', ')}</span>
+              <span className="material-symbols-outlined text-[14px]">expand_more</span>
+            </button>
           </div>
         </div>
 
@@ -1189,7 +1207,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               key={i}
               onClick={() => {
                 setSelectedLanguage(l.name);
-                localStorage.setItem('profile_language', l.name);
+                writeString('profile_language', l.name);
                 setIsLanguageOpen(false);
                 triggerToast(`App language updated to ${l.name}!`);
               }}
@@ -1226,7 +1244,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 checked={remindersEnabled}
                 onChange={(e) => {
                   setRemindersEnabled(e.target.checked);
-                  localStorage.setItem('reminders_enabled', String(e.target.checked));
+                  writeString('reminders_enabled', String(e.target.checked));
                   triggerToast(e.target.checked ? 'Reminders turned ON' : 'Reminders turned OFF');
                 }}
                 className="w-5 h-5 accent-[#e6007e] rounded cursor-pointer"
@@ -1246,7 +1264,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 checked={autoPlayAmbiance}
                 onChange={(e) => {
                   setAutoPlayAmbiance(e.target.checked);
-                  localStorage.setItem('autoplay_ambiance', String(e.target.checked));
+                  writeString('autoplay_ambiance', String(e.target.checked));
                   triggerToast(e.target.checked ? 'Auto-play turned ON' : 'Auto-play turned OFF');
                 }}
                 className="w-5 h-5 accent-[#e6007e] rounded cursor-pointer"
@@ -1260,7 +1278,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <button
                 onClick={() => {
                   setThemeMode('light');
-                  localStorage.setItem('profile_theme', 'light');
+                  writeString('profile_theme', 'light');
                   triggerToast('Light theme applied.');
                 }}
                 className={`h-11 rounded-xl font-bold text-xs flex items-center justify-center gap-1 border transition-all cursor-pointer ${
@@ -1275,7 +1293,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <button
                 onClick={() => {
                   setThemeMode('dark');
-                  localStorage.setItem('profile_theme', 'dark');
+                  writeString('profile_theme', 'dark');
                   triggerToast('Dark theme mock configuration activated.');
                 }}
                 className={`h-11 rounded-xl font-bold text-xs flex items-center justify-center gap-1 border transition-all cursor-pointer ${

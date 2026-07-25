@@ -41,17 +41,33 @@ export const AMBIANCE_PRESETS: AmbiancePreset[] = [
   },
 ];
 
+type AmbianceListener = (
+  isPlaying: boolean,
+  preset: AmbiancePresetId,
+  volume: number,
+) => void;
+
+type ManagedNode = AudioNode & { stop?: (when?: number) => void };
+
 class AmbianceSynthesizer {
   private ctx: AudioContext | null = null;
   private isPlaying: boolean = false;
   private currentPreset: AmbiancePresetId = 'zen_spa';
   private masterGain: GainNode | null = null;
-  private activeNodes: (OscillatorNode | AudioBufferSourceNode | BiquadFilterNode | GainNode)[] = [];
+  private activeNodes: ManagedNode[] = [];
   private chimeTimer: number | null = null;
+  private teardownTimer: number | null = null;
+  /**
+   * Incremented on every start/stop. Deferred teardown work checks the token it
+   * captured and bails out if a newer session has begun - previously switching
+   * presets scheduled a 350ms teardown that then killed the *new* preset's nodes
+   * and flipped `isPlaying` back to false.
+   */
+  private generation = 0;
   private volume: number = 0.6;
-  private listeners: Set<(isPlaying: boolean, preset: AmbiancePresetId, volume: number) => void> = new Set();
+  private listeners: Set<AmbianceListener> = new Set();
 
-  public subscribe(listener: (isPlaying: boolean, preset: AmbiancePresetId, volume: number) => void) {
+  public subscribe(listener: AmbianceListener) {
     this.listeners.add(listener);
     // Notify immediately with current state
     listener(this.isPlaying, this.currentPreset, this.volume);
@@ -66,11 +82,26 @@ class AmbianceSynthesizer {
 
   private initCtx() {
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      // Guard against browsers without Web Audio (previously this threw a
+      // TypeError and took the whole salon page down).
+      if (!AudioCtx) {
+        console.warn('Web Audio API is not supported in this browser.');
+        return;
+      }
+      try {
+        this.ctx = new AudioCtx();
+      } catch (error) {
+        console.warn('Unable to create AudioContext', error);
+        this.ctx = null;
+        return;
+      }
     }
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      // Autoplay policies reject this until a user gesture; ignore the rejection.
+      void this.ctx.resume().catch(() => undefined);
     }
   }
 
@@ -95,18 +126,27 @@ class AmbianceSynthesizer {
   }
 
   public start(presetId: AmbiancePresetId = 'zen_spa', volume: number = 0.6) {
-    this.stop();
+    // Tear down synchronously so the previous graph can never outlive this call.
+    this.teardownNow();
     this.initCtx();
-    if (!this.ctx) return;
+    if (!this.ctx) {
+      this.isPlaying = false;
+      this.notify();
+      return;
+    }
 
+    const generation = ++this.generation;
     this.currentPreset = presetId;
-    this.volume = volume;
+    this.volume = Math.max(0, Math.min(1, volume));
     this.isPlaying = true;
 
     // Master Gain
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.setValueAtTime(0.01, this.ctx.currentTime);
-    this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 1.2);
+    this.masterGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+    this.masterGain.gain.linearRampToValueAtTime(
+      Math.max(this.volume, 0.0001),
+      this.ctx.currentTime + 1.2,
+    );
     this.masterGain.connect(this.ctx.destination);
 
     if (presetId === 'zen_spa') {
@@ -119,7 +159,50 @@ class AmbianceSynthesizer {
       this.buildCalmSteam();
     }
 
+    // A newer session started while we were building - discard this one.
+    if (generation !== this.generation) {
+      this.teardownNow();
+      return;
+    }
+
     this.notify();
+  }
+
+  /** Immediately disconnects every node without waiting for the fade. */
+  private teardownNow() {
+    if (this.chimeTimer !== null) {
+      window.clearInterval(this.chimeTimer);
+      this.chimeTimer = null;
+    }
+    if (this.teardownTimer !== null) {
+      window.clearTimeout(this.teardownTimer);
+      this.teardownTimer = null;
+    }
+
+    this.activeNodes.forEach((node) => {
+      try {
+        node.stop?.();
+      } catch {
+        /* already stopped */
+      }
+      try {
+        node.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+    });
+    this.activeNodes = [];
+
+    // The master gain was never disconnected before, leaking one node per
+    // play/stop cycle for the lifetime of the AudioContext.
+    if (this.masterGain) {
+      try {
+        this.masterGain.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this.masterGain = null;
+    }
   }
 
   public stop() {
@@ -128,29 +211,44 @@ class AmbianceSynthesizer {
       this.chimeTimer = null;
     }
 
-    if (this.masterGain && this.ctx && this.isPlaying) {
+    const generation = ++this.generation;
+    const wasPlaying = this.isPlaying;
+    this.isPlaying = false;
+
+    if (this.masterGain && this.ctx && wasPlaying) {
       try {
-        this.masterGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.3);
+        this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.masterGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.08);
       } catch (e) {
-        console.warn('Gains sweep error', e);
+        console.warn('Gain sweep error', e);
       }
     }
 
-    setTimeout(() => {
-      this.activeNodes.forEach((node) => {
-        try {
-          if ('stop' in node && typeof node.stop === 'function') {
-            (node as OscillatorNode).stop();
-          }
-          node.disconnect();
-        } catch (e) {
-          // ignore already stopped
-        }
-      });
-      this.activeNodes = [];
-      this.isPlaying = false;
+    if (this.teardownTimer !== null) {
+      window.clearTimeout(this.teardownTimer);
+    }
+
+    this.teardownTimer = window.setTimeout(() => {
+      this.teardownTimer = null;
+      // Bail out if `start()` already replaced this session.
+      if (generation !== this.generation) return;
+      this.teardownNow();
       this.notify();
     }, 350);
+
+    // Report the paused state right away so the UI toggles instantly.
+    this.notify();
+  }
+
+  /** Releases the AudioContext entirely (useful on teardown/HMR). */
+  public dispose() {
+    this.generation++;
+    this.teardownNow();
+    this.isPlaying = false;
+    const ctx = this.ctx;
+    this.ctx = null;
+    this.listeners.clear();
+    void ctx?.close().catch(() => undefined);
   }
 
   // Preset 1: Zen Spa Rain & Singing Bowl Chimes
@@ -217,7 +315,8 @@ class AmbianceSynthesizer {
       chimeOsc.type = 'sine';
       chimeOsc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
-      chimeGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      // exponentialRampToValueAtTime() cannot ramp from exactly 0.
+      chimeGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
       chimeGain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
       chimeGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 3.5);
 
@@ -226,6 +325,16 @@ class AmbianceSynthesizer {
 
       chimeOsc.start();
       chimeOsc.stop(this.ctx.currentTime + 3.6);
+      // One-shot voices were never disconnected, so a long session accumulated
+      // hundreds of dead nodes in the graph.
+      chimeOsc.onended = () => {
+        try {
+          chimeOsc.disconnect();
+          chimeGain.disconnect();
+        } catch {
+          /* ignore */
+        }
+      };
     };
 
     playBowl();
@@ -247,12 +356,16 @@ class AmbianceSynthesizer {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
-      // Tremolo LFO
+      // Tremolo LFO.
+      // Was `lfo.connect(lfoGain.gain)`, which modulated the depth control
+      // itself and left the tremolo completely inaudible. The LFO output has to
+      // be scaled by lfoGain and then routed into the voice's gain AudioParam.
       const lfo = this.ctx.createOscillator();
       const lfoGain = this.ctx.createGain();
       lfo.frequency.setValueAtTime(2.5 + idx * 0.3, this.ctx.currentTime);
       lfoGain.gain.setValueAtTime(0.03, this.ctx.currentTime);
-      lfo.connect(lfoGain.gain);
+      lfo.connect(lfoGain);
+      lfoGain.connect(gain.gain);
 
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(600, this.ctx.currentTime);
@@ -329,6 +442,14 @@ class AmbianceSynthesizer {
 
       osc.start();
       osc.stop(this.ctx.currentTime + 2.6);
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          gain.disconnect();
+        } catch {
+          /* ignore */
+        }
+      };
     };
 
     playBell();

@@ -8,8 +8,8 @@ export const LOCATION_PIN_URL = 'https://lh3.googleusercontent.com/aida-public/A
 export const WELCOME_BG_URL = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDGlC0y_Xz7ws9fBk2enobNYh_8MeOC3_im9Vw1YDOlIopdHcUPp2vnWjDM9eJQVHfp81c_JtHXfmlRhS-QG1F2I5kvPJzHrcpVvurCwHS2KkFxHWBSSRgkYpdI47_fPMvqmFv75zYI3NQFSsYIcdc6dCZ8-7lBaTl4or6AswOuZ4_rBqfdADrYNchiUpNjt9KAZSdAcZrJjDAxo9Rv8hz2NouIh23-guUR9ZMazmHiio7YoqW-Gd_gEAcOcNW8ThyembA8056Yr2k';
 
 export const INITIAL_LOCATION: UserLocation = {
-  city: 'Mumbai',
-  area: 'Indiranagar, Bangalore',
+  city: 'Bangalore',
+  area: 'Indiranagar',
   isGPS: true,
 };
 
@@ -189,7 +189,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
   {
     id: 'bk-99',
     salonId: 'aura-premium',
-    salonName: 'Aura Premium Salon',
+    salonName: 'Aura Premium Studio',
     services: [
       { id: 'a1', name: "Woman's Haircut & Blowdry", durationMinutes: 45, price: 899, category: 'Hair Styling' },
     ],
@@ -205,7 +205,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
   {
     id: 'bk-101',
     salonId: 'aura-premium',
-    salonName: 'Aura Premium Salon',
+    salonName: 'Aura Premium Studio',
     services: [
       { id: 'a2', name: 'Balayage & Styling', durationMinutes: 120, price: 3499, category: 'Hair Styling' },
     ],
@@ -220,7 +220,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
   {
     id: 'bk-102',
     salonId: 'lumiere-studio',
-    salonName: 'Lumiere Studio',
+    salonName: 'Lumière Studio',
     services: [
       { id: 'l2', name: 'Classic Manicure', durationMinutes: 30, price: 650, category: 'Nails' },
     ],

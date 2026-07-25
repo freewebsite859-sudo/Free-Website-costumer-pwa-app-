@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Screen } from '../types';
+import { readString, writeString } from '../utils/storage';
 
 interface SettingsScreenProps {
   onBack: () => void;
-  onNavigate: (screen: any) => void;
+  onNavigate: (screen: Screen) => void;
   onLogout?: () => void;
 }
 
@@ -13,40 +15,52 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   // Notification states with localStorage syncing
   const [bookingUpdates, setBookingUpdates] = useState(() => {
-    return localStorage.getItem('settings_booking_updates') !== 'false';
+    return readString('settings_booking_updates') !== 'false';
   });
   const [appointmentReminders, setAppointmentReminders] = useState(() => {
-    return localStorage.getItem('settings_appt_reminders') !== 'false';
+    return readString('settings_appt_reminders') !== 'false';
   });
   const [rewardsUpdates, setRewardsUpdates] = useState(() => {
-    return localStorage.getItem('settings_rewards_updates') !== 'false';
+    return readString('settings_rewards_updates') !== 'false';
   });
   const [offersPromo, setOffersPromo] = useState(() => {
-    return localStorage.getItem('settings_offers_promo') !== 'false';
+    return readString('settings_offers_promo') !== 'false';
   });
   const [emailNotifs, setEmailNotifs] = useState(() => {
-    return localStorage.getItem('settings_email_notifs') !== 'false';
+    return readString('settings_email_notifs') !== 'false';
   });
   const [pushNotifs, setPushNotifs] = useState(() => {
-    return localStorage.getItem('settings_push_notifs') !== 'false';
+    return readString('settings_push_notifs') !== 'false';
   });
 
-  // Location states
-  const [preferredLoc, setPreferredLoc] = useState(() => {
-    return localStorage.getItem('user_location_name') || 'San Francisco, CA';
-  });
+  // Location states.
+  // `setPreferredLoc` was never called, so the row always showed a hardcoded
+  // city. Derive it from the location the user actually selected instead.
+  const preferredLoc = (() => {
+    const stored = readString('nexora_user_location');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as { area?: string; city?: string };
+        const label = [parsed.area, parsed.city].filter(Boolean).join(', ');
+        if (label) return label;
+      } catch {
+        /* fall through to default */
+      }
+    }
+    return readString('user_location_name') || 'Mumbai, Maharashtra';
+  })();
   const [useLocAuto, setUseLocAuto] = useState(() => {
-    return localStorage.getItem('settings_use_loc_auto') !== 'false';
+    return readString('settings_use_loc_auto') !== 'false';
   });
 
   // Language state
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('settings_language') || 'english';
+    return readString('settings_language') || 'english';
   });
 
   // Display state
   const [displayMode, setDisplayMode] = useState(() => {
-    return localStorage.getItem('settings_display_mode') || 'device';
+    return readString('settings_display_mode') || 'device';
   });
 
   // Loading / Interaction states
@@ -62,19 +76,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Sync state changes to localStorage and trigger feedback
   const handleToggle = (key: string, val: boolean, setter: (v: boolean) => void, label: string) => {
     setter(val);
-    localStorage.setItem(key, String(val));
+    writeString(key, String(val));
     triggerToast(`${label} is now ${val ? 'enabled' : 'disabled'}`);
   };
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
-    localStorage.setItem('settings_language', lang);
+    writeString('settings_language', lang);
     triggerToast(lang === 'english' ? 'Language set to English' : 'भाषा हिन्दी में बदली गई');
   };
 
   const handleDisplayChange = (mode: string) => {
     setDisplayMode(mode);
-    localStorage.setItem('settings_display_mode', mode);
+    writeString('settings_display_mode', mode);
     triggerToast(mode === 'device' ? 'Theme matched to Device setting' : 'Light Mode theme set as default');
   };
 
@@ -106,6 +120,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   return (
     <div className="flex flex-col w-full pb-32 animate-in fade-in duration-200">
+      {/* In-screen back control (the `onBack` prop was previously unused, so the
+          only way out of Settings was the bottom nav, which is hidden here). */}
+      <div className="flex items-center gap-3 pt-2 pb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-10 h-10 rounded-full bg-[#fde7f3]/60 hover:bg-[#fde7f3] flex items-center justify-center text-[#26181c] transition-colors active:scale-95 cursor-pointer"
+          aria-label="Back to profile"
+        >
+          <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+        </button>
+        <h1 className="text-[22px] font-bold text-on-surface tracking-tight">Settings</h1>
+      </div>
+
       {/* Toast popup */}
       {toast && (
         <div className="fixed top-20 inset-x-4 z-50 bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-top duration-200">

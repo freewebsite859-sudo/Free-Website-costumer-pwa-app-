@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
+import { readJSON, writeJSON } from '../utils/storage';
 
 interface SupportScreenProps {
   onBack: () => void;
-  onNavigate: (screen: any) => void;
+  onNavigate: (screen: Screen) => void;
 }
 
 interface TicketMessage {
@@ -20,6 +21,59 @@ interface SupportTicket {
   date: string;
   messages: TicketMessage[];
 }
+
+const TICKETS_KEY = 'nexora_support_tickets';
+
+const DEFAULT_TICKETS: SupportTicket[] = [
+    {
+      id: 'NX-TK-105',
+      subject: 'Reschedule slot issues',
+      category: 'Booking',
+      status: 'OPEN',
+      date: 'Jul 24, 2026',
+      messages: [
+        {
+          sender: 'user',
+          text: 'I scheduled a Balayage treatment at Aura Premium Salon for tomorrow at 11:00 AM, but I need to push it to 2:00 PM. The app says the slot is occupied but the salon is empty.',
+          time: 'Jul 24, 04:00 PM',
+        },
+        {
+          sender: 'executive',
+          text: 'Hi Priya! Let me check the real-time availability of Aura Premium Salon. We are seeing a block on their end, but let me call them directly to open up the 2:00 PM slot for you.',
+          time: 'Jul 24, 04:15 PM',
+        },
+      ],
+    },
+    {
+      id: 'NX-TK-104',
+      subject: 'Double payment for Aura Booking',
+      category: 'Payment',
+      status: 'RESOLVED',
+      date: 'Jul 23, 2026',
+      messages: [
+        {
+          sender: 'user',
+          text: 'Hey, my transaction failed on the first try but the money was deducted. I had to pay again to confirm the appointment. Please refund the first transaction.',
+          time: 'Jul 23, 10:15 AM',
+        },
+        {
+          sender: 'executive',
+          text: 'Hi Priya, we are extremely sorry for the inconvenience. We have verified the duplicate payment of ₹1,499 in our systems. We have initiated an automatic refund to your source account. It should reflect in your bank account in 3-5 business days.',
+          time: 'Jul 23, 11:30 AM',
+        },
+        {
+          sender: 'user',
+          text: 'Awesome, thank you for the speedy response!',
+          time: 'Jul 23, 11:45 AM',
+        },
+        {
+          sender: 'executive',
+          text: 'You are very welcome, Priya! I will mark this ticket as resolved. Feel free to open a new one if you have any other questions. Have a fabulous salon session!',
+          time: 'Jul 23, 12:00 PM',
+        },
+      ],
+    },
+];
 
 export const SupportScreen: React.FC<SupportScreenProps> = ({
   onBack,
@@ -40,73 +94,19 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
   const [replyText, setReplyText] = useState('');
 
   // Loaded/saved tickets
-  const [tickets, setTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem('nexora_support_tickets');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [
-      {
-        id: 'NX-TK-105',
-        subject: 'Reschedule slot issues',
-        category: 'Booking',
-        status: 'OPEN',
-        date: 'Jul 24, 2026',
-        messages: [
-          {
-            sender: 'user',
-            text: 'I scheduled a Balayage treatment at Aura Premium Salon for tomorrow at 11:00 AM, but I need to push it to 2:00 PM. The app says the slot is occupied but the salon is empty.',
-            time: 'Jul 24, 04:00 PM',
-          },
-          {
-            sender: 'executive',
-            text: 'Hi Priya! Let me check the real-time availability of Aura Premium Salon. We are seeing a block on their end, but let me call them directly to open up the 2:00 PM slot for you.',
-            time: 'Jul 24, 04:15 PM',
-          },
-        ],
-      },
-      {
-        id: 'NX-TK-104',
-        subject: 'Double payment for Aura Booking',
-        category: 'Payment',
-        status: 'RESOLVED',
-        date: 'Jul 23, 2026',
-        messages: [
-          {
-            sender: 'user',
-            text: 'Hey, my transaction failed on the first try but the money was deducted. I had to pay again to confirm the appointment. Please refund the first transaction.',
-            time: 'Jul 23, 10:15 AM',
-          },
-          {
-            sender: 'executive',
-            text: 'Hi Priya, we are extremely sorry for the inconvenience. We have verified the duplicate payment of ₹1,499 in our systems. We have initiated an automatic refund to your source account. It should reflect in your bank account in 3-5 business days.',
-            time: 'Jul 23, 11:30 AM',
-          },
-          {
-            sender: 'user',
-            text: 'Awesome, thank you for the speedy response!',
-            time: 'Jul 23, 11:45 AM',
-          },
-          {
-            sender: 'executive',
-            text: 'You are very welcome, Priya! I will mark this ticket as resolved. Feel free to open a new one if you have any other questions. Have a fabulous salon session!',
-            time: 'Jul 23, 12:00 PM',
-          },
-        ],
-      },
-    ];
-  });
+  const [tickets, setTickets] = useState<SupportTicket[]>(() =>
+    readJSON<SupportTicket[]>(TICKETS_KEY, DEFAULT_TICKETS, (v): v is SupportTicket[] =>
+      Array.isArray(v),
+    ),
+  );
+
 
   // Track expanded FAQ items
   const [expandedFaqIndex, setExpandedFaqIndex] = useState<number | null>(null);
 
   // Sync tickets to localStorage
   useEffect(() => {
-    localStorage.setItem('nexora_support_tickets', JSON.stringify(tickets));
+    writeJSON(TICKETS_KEY, tickets);
   }, [tickets]);
 
   const triggerToast = (msg: string) => {
@@ -285,6 +285,20 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
 
   return (
     <div className="flex flex-col w-full pb-32 animate-in fade-in duration-200">
+      {/* In-screen back control - `onBack` was declared but never rendered, so
+          this screen had no exit affordance (bottom nav is hidden on Support). */}
+      <div className="flex items-center gap-3 pt-2 pb-2">
+        <button
+          type="button"
+          onClick={() => (selectedTicket ? setSelectedTicket(null) : onBack())}
+          className="w-10 h-10 rounded-full bg-[#fde7f3]/60 hover:bg-[#fde7f3] flex items-center justify-center text-[#26181c] transition-colors active:scale-95 cursor-pointer"
+          aria-label={selectedTicket ? 'Back to support' : 'Back to profile'}
+        >
+          <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+        </button>
+        <h1 className="text-[22px] font-bold text-on-surface tracking-tight">Help & Support</h1>
+      </div>
+
       {/* Toast popup */}
       {toast && (
         <div className="fixed top-20 inset-x-4 z-50 bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-top duration-200">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ambianceSynthesizer,
@@ -6,37 +6,54 @@ import {
   AmbiancePresetId,
 } from '../utils/ambianceSynthesizer';
 import { Salon } from '../types';
+import { readString, writeString } from '../utils/storage';
+
+const AUTOPLAY_KEY = 'autoplay_ambiance';
 
 interface AmbianceWidgetProps {
   salon: Salon;
 }
 
 export const AmbianceWidget: React.FC<AmbianceWidgetProps> = ({ salon }) => {
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [selectedPreset, setSelectedPreset] = useState<AmbiancePresetId>('zen_spa');
-  const [volume, setVolume] = useState<number>(0.6);
+  const [isPlaying, setIsPlaying] = useState<boolean>(() => ambianceSynthesizer.getIsPlaying());
+  const [selectedPreset, setSelectedPreset] = useState<AmbiancePresetId>(() =>
+    ambianceSynthesizer.getCurrentPreset(),
+  );
+  const [volume, setVolume] = useState<number>(() => ambianceSynthesizer.getVolume());
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [autoPlay, setAutoPlay] = useState<boolean>(() => {
-    return localStorage.getItem('autoplay_ambiance') === 'true';
-  });
+  const [autoPlay, setAutoPlay] = useState<boolean>(
+    () => readString(AUTOPLAY_KEY) === 'true',
+  );
+
+  // Remember the last non-zero level so unmuting restores it.
+  const lastVolumeRef = useRef<number>(volume > 0 ? volume : 0.6);
 
   useEffect(() => {
-    const unsubscribe = ambianceSynthesizer.subscribe((playing, preset) => {
+    // Keep the widget in sync with the shared synthesizer (the header
+    // SoundControlButton drives the same singleton).
+    const unsubscribe = ambianceSynthesizer.subscribe((playing, preset, vol) => {
       setIsPlaying(playing);
-      if (preset) {
-        setSelectedPreset(preset);
-      }
+      if (preset) setSelectedPreset(preset);
+      setVolume(vol);
+      setIsMuted(vol === 0);
+      if (vol > 0) lastVolumeRef.current = vol;
     });
+    return unsubscribe;
+  }, []);
 
-    const isAutoPlayEnabled = localStorage.getItem('autoplay_ambiance') === 'true';
-    if (isAutoPlayEnabled) {
-      const activeVol = isMuted ? 0 : volume;
-      // Start ambient audio automatically when user views salon detail page
-      ambianceSynthesizer.start(selectedPreset, activeVol);
-    }
+  useEffect(() => {
+    // Autoplay is a preference, so re-evaluate it whenever the salon changes.
+    if (readString(AUTOPLAY_KEY) !== 'true') return;
+    if (ambianceSynthesizer.getIsPlaying()) return;
+    ambianceSynthesizer.start(
+      ambianceSynthesizer.getCurrentPreset(),
+      lastVolumeRef.current,
+    );
+  }, [salon.id]);
 
+  useEffect(() => {
+    // Stop the soundscape when leaving the salon page.
     return () => {
-      unsubscribe();
       if (ambianceSynthesizer.getIsPlaying()) {
         ambianceSynthesizer.stop();
       }
@@ -46,40 +63,40 @@ export const AmbianceWidget: React.FC<AmbianceWidgetProps> = ({ salon }) => {
   const handleToggleAutoPlay = () => {
     const nextVal = !autoPlay;
     setAutoPlay(nextVal);
-    localStorage.setItem('autoplay_ambiance', String(nextVal));
+    writeString(AUTOPLAY_KEY, String(nextVal));
   };
 
   const handleTogglePlay = () => {
     if (isPlaying) {
       ambianceSynthesizer.stop();
-      setIsPlaying(false);
     } else {
-      const activeVol = isMuted ? 0 : volume;
-      ambianceSynthesizer.start(selectedPreset, activeVol);
-      setIsPlaying(true);
+      ambianceSynthesizer.start(selectedPreset, isMuted ? 0 : volume);
     }
   };
 
   const handleSelectPreset = (presetId: AmbiancePresetId) => {
     setSelectedPreset(presetId);
     if (isPlaying) {
-      const activeVol = isMuted ? 0 : volume;
-      ambianceSynthesizer.start(presetId, activeVol);
+      ambianceSynthesizer.start(presetId, isMuted ? 0 : volume);
     }
   };
 
   const handleVolumeChange = (newVol: number) => {
+    // Previously this read the stale `isMuted` value and pushed 0 to the
+    // synthesizer even though the slider had just been dragged above zero.
+    const nextMuted = newVol === 0;
     setVolume(newVol);
-    if (isMuted && newVol > 0) {
-      setIsMuted(false);
-    }
-    ambianceSynthesizer.setVolume(isMuted ? 0 : newVol);
+    setIsMuted(nextMuted);
+    if (newVol > 0) lastVolumeRef.current = newVol;
+    ambianceSynthesizer.setVolume(newVol);
   };
 
   const handleToggleMute = () => {
     const nextMute = !isMuted;
     setIsMuted(nextMute);
-    ambianceSynthesizer.setVolume(nextMute ? 0 : volume);
+    const nextVolume = nextMute ? 0 : lastVolumeRef.current || 0.6;
+    if (!nextMute) setVolume(nextVolume);
+    ambianceSynthesizer.setVolume(nextVolume);
   };
 
   const currentPresetObj = AMBIANCE_PRESETS.find((p) => p.id === selectedPreset) || AMBIANCE_PRESETS[0];

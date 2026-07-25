@@ -57,7 +57,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   {item.icon}
                 </span>
                 {item.badge && item.badge > 0 ? (
-                  <span className="absolute -top-1 -right-2 bg-[#e6007e] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-[16px] text-center shadow-sm">
+                  <span className="absolute -top-1 -right-2 bg-[#e6007e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center shadow-sm">
                     {item.badge}
                   </span>
                 ) : null}

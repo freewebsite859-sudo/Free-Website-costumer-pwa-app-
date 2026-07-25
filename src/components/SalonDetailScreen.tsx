@@ -1,10 +1,86 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Salon, Service, Staff, ServiceReview, WaitlistEntry } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
 import { WaitlistModal } from './WaitlistModal';
 import { AmbianceWidget } from './AmbianceWidget';
 import { SoundControlButton } from './SoundControlButton';
-import { ambianceSynthesizer } from '../utils/ambianceSynthesizer';
+import { readJSON, writeJSON } from '../utils/storage';
+import { createId } from '../utils/id';
+import { REVIEWS_UPDATED_EVENT, serviceReviewsKey } from '../utils/reviews';
+
+const WAITLIST_STORAGE_KEY = 'nexora_waitlist_entries';
+
+function buildDemoWaitlist(salon: Salon): WaitlistEntry[] {
+  return [
+    {
+      id: 'wl-demo-1',
+      salonId: salon.id,
+      salonName: salon.name,
+      serviceNames: [salon.services[0]?.name || 'Balayage & Styling'],
+      dateStr: 'Wed 24 Jul',
+      timeSlot: '09:00 AM',
+      clientName: 'Priya Sharma',
+      clientPhone: '+91 98765 43210',
+      notificationPreference: 'both',
+      createdAt: Date.now() - 3600000,
+      position: 1,
+      status: 'ACTIVE',
+    },
+  ];
+}
+
+function buildDefaultReviews(salon: Salon): ServiceReview[] {
+  const defaultSvc0 = salon.services[0]?.name || 'Balayage & Hair Styling';
+  const defaultSvc1 = salon.services[1]?.name || 'Kerastase Hair Spa';
+  const defaultSvc2 = salon.services[2]?.name || 'Organic Hydra Facial';
+
+  return [
+    {
+      id: `${salon.id}-sr-1`,
+      salonId: salon.id,
+      serviceName: defaultSvc0,
+      author: 'Ananya Sharma',
+      rating: 5,
+      date: '2 days ago',
+      comment:
+        'The balayage shade turned out exactly as I envisioned! Gentle bleaching technique with zero brassiness.',
+      verifiedBooking: true,
+    },
+    {
+      id: `${salon.id}-sr-2`,
+      salonId: salon.id,
+      serviceName: defaultSvc1,
+      author: 'Priya Mehta',
+      rating: 5,
+      date: '1 week ago',
+      comment:
+        'Deep scalp massager and steaming treatment was immensely relaxing. My hair feels 10x softer.',
+      verifiedBooking: true,
+    },
+    {
+      id: `${salon.id}-sr-3`,
+      salonId: salon.id,
+      serviceName: defaultSvc2,
+      author: 'Rhea Sen',
+      rating: 4.8,
+      date: '2 weeks ago',
+      comment:
+        'Thorough blackhead extraction and cold-hammer massage. Face is glowing without any redness.',
+      verifiedBooking: true,
+    },
+    {
+      id: `${salon.id}-sr-4`,
+      salonId: salon.id,
+      serviceName: defaultSvc0,
+      author: 'Divya Kapoor',
+      rating: 4.9,
+      date: '3 weeks ago',
+      comment:
+        'Professional colorist who took time to understand my skin tone before recommending the caramel highlights.',
+      verifiedBooking: true,
+    },
+  ];
+}
 
 interface SalonDetailScreenProps {
   salon: Salon;
@@ -74,35 +150,14 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     { time: '06:30 PM', isAvailable: false, period: 'Evening' },
   ];
 
-  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>(() => {
-    const saved = localStorage.getItem('nexora_waitlist_entries');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed parsing waitlist entries', e);
-      }
-    }
-    return [
-      {
-        id: 'wl-demo-1',
-        salonId: salon.id,
-        salonName: salon.name,
-        serviceNames: [salon.services[0]?.name || 'Balayage & Styling'],
-        dateStr: 'Wed 24 Jul',
-        timeSlot: '09:00 AM',
-        clientName: 'Priya Sharma',
-        clientPhone: '+91 98765 43210',
-        notificationPreference: 'both',
-        createdAt: Date.now() - 3600000,
-        position: 1,
-        status: 'ACTIVE',
-      },
-    ];
-  });
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>(() =>
+    readJSON<WaitlistEntry[]>(WAITLIST_STORAGE_KEY, buildDemoWaitlist(salon), (value): value is WaitlistEntry[] =>
+      Array.isArray(value),
+    ),
+  );
 
   useEffect(() => {
-    localStorage.setItem('nexora_waitlist_entries', JSON.stringify(waitlistEntries));
+    writeJSON(WAITLIST_STORAGE_KEY, waitlistEntries);
   }, [waitlistEntries]);
 
   const handleOpenWaitlistModal = (slotTime: string) => {
@@ -122,77 +177,65 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     );
   };
 
+  // The alert toast previously stayed on screen forever, covering the header.
+  useEffect(() => {
+    if (!waitlistAlertToast) return;
+    const timer = window.setTimeout(() => setWaitlistAlertToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [waitlistAlertToast]);
+
   const handleRemoveWaitlist = (entryId: string) => {
     setWaitlistEntries((prev) => prev.filter((e) => e.id !== entryId));
   };
 
-  const [serviceReviews, setServiceReviews] = useState<ServiceReview[]>(() => {
-    const saved = localStorage.getItem(`nexora_service_reviews_${salon.id}`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved reviews', e);
-      }
-    }
+  const [serviceReviews, setServiceReviews] = useState<ServiceReview[]>(() =>
+    readJSON<ServiceReview[]>(
+      serviceReviewsKey(salon.id),
+      buildDefaultReviews(salon),
+      (value): value is ServiceReview[] => Array.isArray(value),
+    ),
+  );
 
-    // Default mock reviews for this salon
-    const defaultSvc0 = salon.services[0]?.name || 'Balayage & Hair Styling';
-    const defaultSvc1 = salon.services[1]?.name || 'Kerastase Hair Spa';
-    const defaultSvc2 = salon.services[2]?.name || 'Organic Hydra Facial';
-
-    return [
-      {
-        id: 'sr-1',
-        salonId: salon.id,
-        serviceName: defaultSvc0,
-        author: 'Ananya Sharma',
-        rating: 5,
-        date: '2 days ago',
-        comment: 'The balayage shade turned out exactly as I envisioned! Gentle bleaching technique with zero brassiness.',
-        verifiedBooking: true,
-      },
-      {
-        id: 'sr-2',
-        salonId: salon.id,
-        serviceName: defaultSvc1,
-        author: 'Priya Mehta',
-        rating: 5,
-        date: '1 week ago',
-        comment: 'Deep scalp massager and steaming treatment was immensely relaxing. My hair feels 10x softer.',
-        verifiedBooking: true,
-      },
-      {
-        id: 'sr-3',
-        salonId: salon.id,
-        serviceName: defaultSvc2,
-        author: 'Rhea Sen',
-        rating: 4.8,
-        date: '2 weeks ago',
-        comment: 'Thorough blackhead extraction and cold-hammer massage. Face is glowing without any redness.',
-        verifiedBooking: true,
-      },
-      {
-        id: 'sr-4',
-        salonId: salon.id,
-        serviceName: defaultSvc0,
-        author: 'Divya Kapoor',
-        rating: 4.9,
-        date: '3 weeks ago',
-        comment: 'Professional colorist who took time to understand my skin tone before recommending the caramel highlights.',
-        verifiedBooking: true,
-      },
-    ];
-  });
+  // Reload reviews whenever the visited salon changes, otherwise the screen keeps
+  // showing the previous salon's reviews (and then overwrites them on save).
+  const loadedSalonRef = useRef(salon.id);
+  useEffect(() => {
+    if (loadedSalonRef.current === salon.id) return;
+    loadedSalonRef.current = salon.id;
+    setServiceReviews(
+      readJSON<ServiceReview[]>(
+        serviceReviewsKey(salon.id),
+        buildDefaultReviews(salon),
+        (value): value is ServiceReview[] => Array.isArray(value),
+      ),
+    );
+  }, [salon]);
 
   useEffect(() => {
-    localStorage.setItem(`nexora_service_reviews_${salon.id}`, JSON.stringify(serviceReviews));
+    writeJSON(serviceReviewsKey(salon.id), serviceReviews);
   }, [serviceReviews, salon.id]);
+
+  // Pick up reviews submitted from the Bookings screen while this screen is mounted.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ salonId?: string }>).detail;
+      if (!detail || detail.salonId !== salon.id) return;
+      setServiceReviews(
+        readJSON<ServiceReview[]>(
+          serviceReviewsKey(salon.id),
+          [],
+          (value): value is ServiceReview[] => Array.isArray(value),
+        ),
+      );
+    };
+    window.addEventListener(REVIEWS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(REVIEWS_UPDATED_EVENT, handler);
+  }, [salon.id]);
 
   const handleAddReview = (newRev: Omit<ServiceReview, 'id' | 'date'>) => {
     const created: ServiceReview = {
       ...newRev,
-      id: `sr-${Date.now()}`,
+      id: createId('sr'),
       date: 'Just now',
     };
     setServiceReviews((prev) => [created, ...prev]);
@@ -440,7 +483,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                   }`}
                 >
                   <span>All Services</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedCategoryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-[#fde7f3] text-[#e6007e]'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategoryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-[#fde7f3] text-[#e6007e]'}`}>
                     {salon.services.length}
                   </span>
                 </button>
@@ -459,7 +502,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                       }`}
                     >
                       <span>{cat}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSel ? 'bg-white/20 text-white' : 'bg-[#fde7f3] text-[#e6007e]'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isSel ? 'bg-white/20 text-white' : 'bg-[#fde7f3] text-[#e6007e]'}`}>
                         {count}
                       </span>
                     </button>
@@ -645,11 +688,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                             <span className="text-xs font-bold text-[#26181c]">
                               {entry.timeSlot} • {entry.dateStr}
                             </span>
-                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
+                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
                               Queue #{entry.position}
                             </span>
                             {entry.status === 'NOTIFIED' && (
-                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
                                 Slot Opened!
                               </span>
                             )}
@@ -915,7 +958,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                     >
                       <span>{svc.name}</span>
                       {count > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 font-extrabold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/10 font-extrabold">
                           {count}
                         </span>
                       )}

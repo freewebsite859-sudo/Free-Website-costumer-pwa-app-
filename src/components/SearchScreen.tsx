@@ -5,6 +5,8 @@ import { Salon } from '../types';
 interface SearchScreenProps {
   salons: Salon[];
   favorites: string[];
+  /** Current app location, used for the results header and map label. */
+  locationLabel?: string;
   onToggleFavorite: (salonId: string) => void;
   onSelectSalon: (salon: Salon) => void;
   onBack: () => void;
@@ -13,10 +15,14 @@ interface SearchScreenProps {
 export const SearchScreen: React.FC<SearchScreenProps> = ({
   salons,
   favorites,
+  locationLabel = 'Your area',
   onToggleFavorite,
   onSelectSalon,
+  onBack,
 }) => {
-  const [searchQuery, setSearchQuery] = useState<string>('Hair spa');
+  // Started as a hardcoded query, which made the screen look pre-filtered
+  // (and hid most salons) the first time a user opened Search.
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('All');
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number>(5000);
   const [showMapView, setShowMapView] = useState<boolean>(false);
@@ -45,6 +51,17 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
     <div className="flex flex-col w-full gap-5 pb-32 pt-2">
       {/* Search Input Bar */}
       <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-10 h-10 -ml-2 rounded-full bg-[#fde7f3]/60 hover:bg-[#fde7f3] flex items-center justify-center text-[#26181c] transition-colors active:scale-95 cursor-pointer shrink-0"
+            aria-label="Back to home"
+          >
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+          </button>
+          <span className="text-[15px] font-bold text-[#26181c]">Find Salons</span>
+        </div>
         <div className="relative w-full">
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#5a3f47]">
             search
@@ -114,7 +131,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
         <h2 className="text-[18px] font-bold text-[#26181c]">
           {filteredSalons.length} Results {searchQuery ? `for "${searchQuery}"` : ''}
         </h2>
-        <span className="text-[13px] font-semibold text-[#5a3f47]">Bandra West</span>
+        <span className="text-[13px] font-semibold text-[#5a3f47] truncate max-w-[45%]">{locationLabel}</span>
       </div>
 
       {/* Results List */}
@@ -269,7 +286,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                   className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-md flex items-center gap-2"
                 >
                   <span className="material-symbols-outlined text-[#e6007e]">location_on</span>
-                  <span className="text-xs font-bold text-[#26181c]">Bandra West, Mumbai</span>
+                  <span className="text-xs font-bold text-[#26181c]">{locationLabel}</span>
                 </motion.div>
                 <motion.button
                   initial={{ opacity: 0, scale: 0.8 }}

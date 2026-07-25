@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
   MOCK_SALONS,
   INITIAL_BOOKINGS,
   INITIAL_LOCATION,
 } from './data/mockData';
+import { readJSON, writeJSON } from './utils/storage';
+import { createId, createBookingReference } from './utils/id';
+import { REVIEWS_UPDATED_EVENT, serviceReviewsKey } from './utils/reviews';
 
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -25,6 +28,108 @@ import { BookingConfirmationModal } from './components/BookingConfirmationModal'
 import { NotificationOverlay } from './components/NotificationOverlay';
 import { NotificationDrawer } from './components/NotificationDrawer';
 
+const STORAGE_KEYS = {
+  location: 'nexora_user_location',
+  favorites: 'nexora_favorites',
+  favoritePros: 'nexora_favorite_pros',
+  favoriteServices: 'nexora_favorite_services',
+  bookings: 'nexora_bookings',
+  notifications: 'nexora_notifications',
+} as const;
+
+const isArray = <T,>(value: unknown): value is T[] => Array.isArray(value);
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+const isUserLocation = (value: unknown): value is UserLocation =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as UserLocation).city === 'string' &&
+  typeof (value as UserLocation).area === 'string';
+
+const DEFAULT_FAVORITES: string[] = ['aura-premium', 'glam-room'];
+
+/**
+ * Screens that render their own fixed top bar (or are full-screen overlays).
+ * Rendering the global <Header> for these produced two stacked headers.
+ */
+const SCREENS_WITHOUT_GLOBAL_HEADER = new Set<Screen>([
+  'welcome',
+  'splash',
+  'location-modal',
+  'checkout',
+  'salon-detail',
+]);
+
+/** Screens that manage their own horizontal padding edge-to-edge. */
+const SCREENS_WITHOUT_PADDING = new Set<Screen>([
+  'welcome',
+  'splash',
+  'location-modal',
+  'checkout',
+  'salon-detail',
+]);
+
+const DEFAULT_FAVORITE_PROFESSIONALS: SavedProfessional[] = [
+  {
+    id: 'pro-1',
+    salonId: 'aura-premium',
+    name: 'Maya S.',
+    role: 'Senior Hair Stylist',
+    rating: 4.9,
+    avatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    salonName: 'Aura Premium Studio',
+    skills: ['Haircut', 'Balayage', 'Coloring'],
+  },
+  {
+    id: 'pro-2',
+    salonId: 'glam-room',
+    name: 'Arjun K.',
+    role: 'Master Grooming Expert',
+    rating: 4.8,
+    avatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    salonName: 'The Glam Room',
+    skills: ['Beard Styling', 'Fade Haircut'],
+  },
+];
+
+const DEFAULT_FAVORITE_SERVICES: SavedService[] = [
+  {
+    id: 'srv-1',
+    salonId: 'aura-premium',
+    name: "Woman's Haircut & Blowdry",
+    durationMinutes: 45,
+    price: 899,
+    salonName: 'Aura Premium Studio',
+    category: 'Hair Styling',
+  },
+  {
+    id: 'srv-2',
+    salonId: 'luxe-spa',
+    name: 'Deep Cleansing Facial Glow',
+    durationMinutes: 60,
+    price: 1499,
+    salonName: 'Luxe Botanicals & Spa',
+    category: 'Skincare',
+  },
+];
+
+const DEFAULT_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: 'notif-init-1',
+    bookingId: 'bk-101',
+    salonName: 'Aura Premium Studio',
+    timeSlot: '11:00 AM',
+    dateStr: 'Sat, 28 Jul',
+    servicesSummary: 'Balayage & Hair Styling',
+    timestamp: Date.now() - 300000,
+    read: false,
+    type: 'reminder_1h',
+    message: 'Your appointment at Aura Premium Studio starts in 1 hour at 11:00 AM!',
+  },
+];
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [salons] = useState<Salon[]>(MOCK_SALONS);
@@ -36,158 +141,133 @@ export default function App() {
     MOCK_SALONS[0].staff[0] || null
   );
 
-  const [userLocation, setUserLocation] = useState<UserLocation>(() => {
-    const saved = localStorage.getItem('nexora_user_location');
-    return saved ? JSON.parse(saved) : INITIAL_LOCATION;
-  });
+  const [userLocation, setUserLocation] = useState<UserLocation>(() =>
+    readJSON<UserLocation>(STORAGE_KEYS.location, INITIAL_LOCATION, isUserLocation),
+  );
 
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    const saved = localStorage.getItem('nexora_favorites');
-    return saved ? JSON.parse(saved) : ['aura-premium', 'glam-room'];
-  });
+  const [favorites, setFavorites] = useState<string[]>(() =>
+    readJSON<string[]>(STORAGE_KEYS.favorites, DEFAULT_FAVORITES, isStringArray),
+  );
 
-  const [favoriteProfessionals, setFavoriteProfessionals] = useState<SavedProfessional[]>(() => {
-    const saved = localStorage.getItem('nexora_favorite_pros');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'pro-1',
-        salonId: 'aura-premium',
-        name: 'Maya S.',
-        role: 'Senior Hair Stylist',
-        rating: 4.9,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        salonName: 'Aura Premium Salon',
-        skills: ['Haircut', 'Balayage', 'Coloring']
-      },
-      {
-        id: 'pro-2',
-        salonId: 'glam-room',
-        name: 'Arjun K.',
-        role: 'Master Grooming Expert',
-        rating: 4.8,
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        salonName: 'The Glam Room',
-        skills: ['Beard Styling', 'Fade Haircut']
-      }
-    ];
-  });
+  const [favoriteProfessionals, setFavoriteProfessionals] = useState<SavedProfessional[]>(() =>
+    readJSON<SavedProfessional[]>(
+      STORAGE_KEYS.favoritePros,
+      DEFAULT_FAVORITE_PROFESSIONALS,
+      isArray,
+    ),
+  );
 
-  const [favoriteServices, setFavoriteServices] = useState<SavedService[]>(() => {
-    const saved = localStorage.getItem('nexora_favorite_services');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'srv-1',
-        salonId: 'aura-premium',
-        name: "Woman's Haircut & Blowdry",
-        durationMinutes: 45,
-        price: 899,
-        salonName: 'Aura Premium Salon',
-        category: 'Hair Styling'
-      },
-      {
-        id: 'srv-2',
-        salonId: 'luxe-spa',
-        name: 'Deep Cleansing Facial Glow',
-        durationMinutes: 60,
-        price: 1499,
-        salonName: 'Luxe Botanicals & Spa',
-        category: 'Skincare'
-      }
-    ];
-  });
+  const [favoriteServices, setFavoriteServices] = useState<SavedService[]>(() =>
+    readJSON<SavedService[]>(STORAGE_KEYS.favoriteServices, DEFAULT_FAVORITE_SERVICES, isArray),
+  );
 
-  const [bookings, setBookings] = useState<Booking[]>(() => {
-    const saved = localStorage.getItem('nexora_bookings');
-    return saved ? JSON.parse(saved) : INITIAL_BOOKINGS;
-  });
+  const [bookings, setBookings] = useState<Booking[]>(() =>
+    readJSON<Booking[]>(STORAGE_KEYS.bookings, INITIAL_BOOKINGS, isArray),
+  );
 
   const [confirmedModalBooking, setConfirmedModalBooking] = useState<Booking | null>(null);
 
   // Notification States
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem('nexora_notifications');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'notif-init-1',
-        bookingId: 'bk-101',
-        salonName: 'Aura Premium Salon',
-        timeSlot: '11:00 AM',
-        dateStr: 'Sat, 28 Jul',
-        servicesSummary: 'Balayage & Hair Styling',
-        timestamp: Date.now() - 300000,
-        read: false,
-        type: 'reminder_1h',
-        message: 'Your appointment at Aura Premium Salon starts in 1 hour at 11:00 AM!',
-      },
-    ];
-  });
+  const [notifications, setNotifications] = useState<AppNotification[]>(() =>
+    readJSON<AppNotification[]>(STORAGE_KEYS.notifications, DEFAULT_NOTIFICATIONS, isArray),
+  );
 
   const [activePushOverlay, setActivePushOverlay] = useState<AppNotification | null>(null);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
-  // Sync state to localStorage
+  // Sync state to storage
   useEffect(() => {
-    localStorage.setItem('nexora_favorites', JSON.stringify(favorites));
+    writeJSON(STORAGE_KEYS.favorites, favorites);
   }, [favorites]);
 
   useEffect(() => {
-    localStorage.setItem('nexora_favorite_pros', JSON.stringify(favoriteProfessionals));
+    writeJSON(STORAGE_KEYS.favoritePros, favoriteProfessionals);
   }, [favoriteProfessionals]);
 
   useEffect(() => {
-    localStorage.setItem('nexora_favorite_services', JSON.stringify(favoriteServices));
+    writeJSON(STORAGE_KEYS.favoriteServices, favoriteServices);
   }, [favoriteServices]);
 
   useEffect(() => {
-    localStorage.setItem('nexora_bookings', JSON.stringify(bookings));
+    writeJSON(STORAGE_KEYS.bookings, bookings);
   }, [bookings]);
 
   useEffect(() => {
-    localStorage.setItem('nexora_user_location', JSON.stringify(userLocation));
+    writeJSON(STORAGE_KEYS.location, userLocation);
   }, [userLocation]);
 
   useEffect(() => {
-    localStorage.setItem('nexora_notifications', JSON.stringify(notifications));
+    writeJSON(STORAGE_KEYS.notifications, notifications);
   }, [notifications]);
 
-  // Trigger push notification helper
-  const triggerPushNotificationForBooking = (targetBookingId?: string) => {
-    const targetBooking =
-      bookings.find((b) => b.id === targetBookingId) ||
-      bookings.find((b) => b.status === 'CONFIRMED' || b.status === 'PENDING') ||
-      bookings[0];
+  // Timers that must be cancelled on unmount so they never call setState on a
+  // dead component (and so a pending "snooze" doesn't fire after logout).
+  const timeoutsRef = useRef<number[]>([]);
 
-    if (!targetBooking) return;
+  const schedule = useCallback((fn: () => void, delay: number) => {
+    const id = window.setTimeout(() => {
+      timeoutsRef.current = timeoutsRef.current.filter((t) => t !== id);
+      fn();
+    }, delay);
+    timeoutsRef.current.push(id);
+    return id;
+  }, []);
 
-    const newNotif: AppNotification = {
-      id: `notif-${Date.now()}`,
-      bookingId: targetBooking.id,
-      salonName: targetBooking.salonName,
-      timeSlot: targetBooking.timeSlot,
-      dateStr: targetBooking.dateStr,
-      servicesSummary: targetBooking.services.map((s) => s.name).join(', '),
-      timestamp: Date.now(),
-      read: false,
-      type: 'reminder_1h',
-      message: `Your appointment at ${targetBooking.salonName} starts in 1 hour (${targetBooking.timeSlot})!`,
+  useEffect(() => {
+    const timeouts = timeoutsRef;
+    return () => {
+      timeouts.current.forEach((id) => window.clearTimeout(id));
+      timeouts.current = [];
     };
+  }, []);
 
-    setNotifications((prev) => [newNotif, ...prev]);
-    setActivePushOverlay(newNotif);
+  // Trigger push notification helper.
+  // Uses the functional updater so it always reads the *current* bookings list
+  // instead of the snapshot captured when the callback was created.
+  const triggerPushNotificationForBooking = useCallback((targetBookingId?: string) => {
+    setBookings((currentBookings) => {
+      const targetBooking =
+        currentBookings.find((b) => b.id === targetBookingId) ||
+        currentBookings.find((b) => b.status === 'CONFIRMED' || b.status === 'PENDING') ||
+        currentBookings[0];
 
-    // Trigger Browser Push Notification if browser supports and permitted
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try {
-        new Notification(`⏰ 1-Hour Reminder: ${targetBooking.salonName}`, {
-          body: `Your appointment for ${newNotif.servicesSummary} starts in 1 hour at ${targetBooking.timeSlot}.`,
-          icon: '/icon.png',
-        });
-      } catch (e) {
-        console.warn('Native push notification error', e);
+      if (!targetBooking) return currentBookings;
+
+      const newNotif: AppNotification = {
+        id: createId('notif'),
+        bookingId: targetBooking.id,
+        salonName: targetBooking.salonName,
+        timeSlot: targetBooking.timeSlot,
+        dateStr: targetBooking.dateStr,
+        servicesSummary: targetBooking.services.map((s) => s.name).join(', '),
+        timestamp: Date.now(),
+        read: false,
+        type: 'reminder_1h',
+        message: `Your appointment at ${targetBooking.salonName} starts in 1 hour (${targetBooking.timeSlot})!`,
+      };
+
+      // Defer the sibling state updates out of this updater so React never warns
+      // about updating another component while rendering this one.
+      queueMicrotask(() => {
+        setNotifications((prev) => [newNotif, ...prev]);
+        setActivePushOverlay(newNotif);
+      });
+
+      // Trigger Browser Push Notification if browser supports and permitted
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+          new Notification(`⏰ 1-Hour Reminder: ${targetBooking.salonName}`, {
+            body: `Your appointment for ${newNotif.servicesSummary} starts in 1 hour at ${targetBooking.timeSlot}.`,
+            icon: '/icon.png',
+          });
+        } catch (e) {
+          console.warn('Native push notification error', e);
+        }
       }
-    }
-  };
+
+      return currentBookings;
+    });
+  }, []);
 
   const handleToggleFavorite = (salonId: string) => {
     setFavorites((prev) =>
@@ -222,7 +302,7 @@ export default function App() {
     staffName?: string;
   }) => {
     const newBooking: Booking = {
-      id: `NX-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: createBookingReference(),
       salonId: bookingData.salon.id,
       salonName: bookingData.salon.name,
       services: bookingData.services,
@@ -239,7 +319,7 @@ export default function App() {
     setConfirmedModalBooking(newBooking);
 
     // Auto-schedule preview push notification for new booking after 1.5 seconds
-    setTimeout(() => {
+    schedule(() => {
       triggerPushNotificationForBooking(newBooking.id);
     }, 1500);
   };
@@ -257,36 +337,35 @@ export default function App() {
   };
 
   const handleAddReviewFromBooking = (salonId: string, newRev: Omit<ServiceReview, 'id' | 'date'>) => {
-    const storageKey = `nexora_service_reviews_${salonId}`;
-    const saved = localStorage.getItem(storageKey);
-    let currentReviews: ServiceReview[] = [];
-    if (saved) {
-      try {
-        currentReviews = JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    const storageKey = serviceReviewsKey(salonId);
+    const currentReviews = readJSON<ServiceReview[]>(storageKey, [], isArray);
     const created: ServiceReview = {
       ...newRev,
-      id: `sr-${Date.now()}`,
+      id: createId('sr'),
       date: 'Just now',
     };
-    const updatedReviews = [created, ...currentReviews];
-    localStorage.setItem(storageKey, JSON.stringify(updatedReviews));
+    writeJSON(storageKey, [created, ...currentReviews]);
+    // Let an open SalonDetailScreen know a review was added elsewhere.
+    window.dispatchEvent(new CustomEvent(REVIEWS_UPDATED_EVENT, { detail: { salonId } }));
   };
 
   const handleSnoozeNotification = (id: string) => {
     setActivePushOverlay(null);
-    // Re-trigger overlay after 10 seconds for testing/preview
-    setTimeout(() => {
-      const snoozedNotif = notifications.find((n) => n.id === id);
-      if (snoozedNotif) {
-        setActivePushOverlay({
-          ...snoozedNotif,
-          message: `[Snoozed Alert] ${snoozedNotif.salonName} appointment starts soon at ${snoozedNotif.timeSlot}!`,
-        });
-      }
+    // Re-trigger overlay after 10 seconds for testing/preview.
+    // Reads the notification from the latest state rather than a stale closure.
+    schedule(() => {
+      setNotifications((current) => {
+        const snoozedNotif = current.find((n) => n.id === id);
+        if (snoozedNotif) {
+          queueMicrotask(() =>
+            setActivePushOverlay({
+              ...snoozedNotif,
+              message: `[Snoozed Alert] ${snoozedNotif.salonName} appointment starts soon at ${snoozedNotif.timeSlot}!`,
+            }),
+          );
+        }
+        return current;
+      });
     }, 10000);
   };
 
@@ -312,7 +391,7 @@ export default function App() {
       case 'saved-addresses':
         return 'Saved Addresses';
       case 'support':
-        return 'Help Home';
+        return 'Help & Support';
       case 'settings':
         return 'App Settings';
       default:
@@ -320,10 +399,9 @@ export default function App() {
     }
   };
 
+  // 'salon-detail' and 'checkout' render their own headers, so they are not listed here.
   const showHeaderBack =
     currentScreen === 'search' ||
-    currentScreen === 'salon-detail' ||
-    currentScreen === 'checkout' ||
     currentScreen === 'favourites' ||
     currentScreen === 'saved-addresses' ||
     currentScreen === 'support' ||
@@ -355,38 +433,34 @@ export default function App() {
       />
 
       {/* Render Header for main views (outside max-w-md container for full viewport width) */}
-      {currentScreen !== 'welcome' &&
-        currentScreen !== 'splash' &&
-        currentScreen !== 'location-modal' && (
+      {!SCREENS_WITHOUT_GLOBAL_HEADER.has(currentScreen) && (
           <Header
             currentScreen={currentScreen}
             title={getHeaderTitle()}
             onNavigate={(screen) => setCurrentScreen(screen)}
             showBack={showHeaderBack}
             onBack={() => {
-              if (currentScreen === 'checkout') setCurrentScreen('salon-detail');
-              else if (currentScreen === 'salon-detail') setCurrentScreen('home');
-              else if (currentScreen === 'search') setCurrentScreen('home');
-              else if (currentScreen === 'saved-addresses') setCurrentScreen('profile');
-              else if (currentScreen === 'support') setCurrentScreen('profile');
-              else if (currentScreen === 'settings') setCurrentScreen('profile');
-              else setCurrentScreen('home');
+              if (
+                currentScreen === 'saved-addresses' ||
+                currentScreen === 'support' ||
+                currentScreen === 'settings'
+              ) {
+                setCurrentScreen('profile');
+              } else {
+                setCurrentScreen('home');
+              }
             }}
             unreadNotificationCount={unreadCount}
             onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
           />
-        )}
+      )}
 
       <div className="w-full max-w-md mx-auto flex-1 flex flex-col relative">
         {/* Content Body Container */}
         <main
-          className={`flex-1 w-full px-5 ${
-            currentScreen !== 'welcome' &&
-            currentScreen !== 'splash' &&
-            currentScreen !== 'location-modal'
-              ? 'pt-20'
-              : ''
-          }`}
+          className={`flex-1 w-full ${
+            SCREENS_WITHOUT_PADDING.has(currentScreen) ? '' : 'px-5'
+          } ${SCREENS_WITHOUT_GLOBAL_HEADER.has(currentScreen) ? '' : 'pt-20'}`}
         >
           {currentScreen === 'welcome' && (
             <WelcomeScreen onContinue={() => setCurrentScreen('home')} />
@@ -409,6 +483,7 @@ export default function App() {
             <SearchScreen
               salons={salons}
               favorites={favorites}
+              locationLabel={[userLocation.area, userLocation.city].filter(Boolean).join(', ')}
               onToggleFavorite={handleToggleFavorite}
               onSelectSalon={handleSelectSalon}
               onBack={() => setCurrentScreen('home')}
@@ -464,6 +539,16 @@ export default function App() {
               onToggleFavoriteService={(servId) => {
                 setFavoriteServices((prev) => prev.filter((s) => s.id !== servId));
               }}
+              onRestoreProfessional={(pro) => {
+                setFavoriteProfessionals((prev) =>
+                  prev.some((p) => p.id === pro.id) ? prev : [...prev, pro],
+                );
+              }}
+              onRestoreService={(service) => {
+                setFavoriteServices((prev) =>
+                  prev.some((s) => s.id === service.id) ? prev : [...prev, service],
+                );
+              }}
               onSelectSalon={handleSelectSalon}
               onNavigate={(s) => setCurrentScreen(s)}
             />
@@ -482,10 +567,7 @@ export default function App() {
           )}
 
           {currentScreen === 'saved-addresses' && (
-            <SavedAddressesScreen
-              onBack={() => setCurrentScreen('profile')}
-              onNavigate={(s) => setCurrentScreen(s)}
-            />
+            <SavedAddressesScreen onBack={() => setCurrentScreen('profile')} />
           )}
 
           {currentScreen === 'support' && (

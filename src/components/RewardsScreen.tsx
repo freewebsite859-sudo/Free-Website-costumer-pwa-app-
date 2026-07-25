@@ -505,7 +505,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-white">Your Rank: #{currentUserRank} of {activeLeaderboard.length}</span>
-                <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.2 rounded-full font-bold uppercase">
+                <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold uppercase">
                   {currentUserMember.tier}
                 </span>
               </div>
@@ -628,7 +628,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
                           {member.name}
                         </h4>
                         {member.isUser && (
-                          <span className="bg-[#e6007e] text-white text-[8px] font-extrabold uppercase px-1.5 py-0.2 rounded-md shrink-0">
+                          <span className="bg-[#e6007e] text-white text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-md shrink-0">
                             You
                           </span>
                         )}

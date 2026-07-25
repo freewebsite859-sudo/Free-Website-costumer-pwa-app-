@@ -1,37 +1,88 @@
-// Web Audio API chime sound utility for push notifications
-export function playNotificationSound() {
+// Web Audio API chime sound utility for push notifications.
+//
+// Previously this constructed a brand new AudioContext on every call. Browsers
+// cap the number of concurrent AudioContexts (~6 in Chrome), so after a handful
+// of notifications the sound silently stopped working and the contexts leaked.
+// We now lazily create a single shared context and reuse it.
+
+type WebkitWindow = typeof window & { webkitAudioContext?: typeof AudioContext };
+
+let sharedCtx: AudioContext | null = null;
+let unsupported = false;
+
+function getContext(): AudioContext | null {
+  if (unsupported) return null;
+  if (sharedCtx && sharedCtx.state !== 'closed') return sharedCtx;
+
+  const AudioCtx =
+    typeof window !== 'undefined'
+      ? window.AudioContext || (window as WebkitWindow).webkitAudioContext
+      : undefined;
+
+  if (!AudioCtx) {
+    unsupported = true;
+    return null;
+  }
+
   try {
-    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
-    if (!AudioContext) return;
+    sharedCtx = new AudioCtx();
+    return sharedCtx;
+  } catch (error) {
+    unsupported = true;
+    console.warn('AudioContext could not be created', error);
+    return null;
+  }
+}
 
-    const ctx = new AudioContext();
-    const now = ctx.currentTime;
+function playTone(
+  ctx: AudioContext,
+  frequency: number,
+  startOffset: number,
+  duration: number,
+  peakGain: number,
+) {
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
 
-    // First soft high chime note
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(587.33, now); // D5
-    gain1.gain.setValueAtTime(0.12, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(frequency, now + startOffset);
 
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.4);
+  // exponentialRampToValueAtTime() throws / does nothing when ramping from 0,
+  // so we start from a tiny non-zero value.
+  gain.gain.setValueAtTime(0.0001, now + startOffset);
+  gain.gain.linearRampToValueAtTime(peakGain, now + startOffset + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
 
-    // Second bell chime note
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(880, now + 0.12); // A5
-    gain2.gain.setValueAtTime(0.18, now + 0.12);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
 
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now + 0.12);
-    osc2.stop(now + 0.7);
+  osc.start(now + startOffset);
+  osc.stop(now + startOffset + duration);
+
+  // Release the nodes once the tone finishes instead of leaving them attached.
+  osc.onended = () => {
+    try {
+      osc.disconnect();
+      gain.disconnect();
+    } catch {
+      /* already disconnected */
+    }
+  };
+}
+
+export function playNotificationSound() {
+  const ctx = getContext();
+  if (!ctx) return;
+
+  try {
+    // Autoplay policy: the context starts suspended until a user gesture.
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => undefined);
+    }
+
+    playTone(ctx, 587.33, 0, 0.4, 0.12); // D5
+    playTone(ctx, 880, 0.12, 0.58, 0.18); // A5
   } catch (e) {
     console.warn('AudioContext not allowed or supported', e);
   }
