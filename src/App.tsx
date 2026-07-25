@@ -291,6 +291,7 @@ export default function App() {
               location={userLocation}
               salons={salons}
               favorites={favorites}
+              bookings={bookings}
               onToggleFavorite={handleToggleFavorite}
               onSelectSalon={handleSelectSalon}
               onNavigate={(s) => setCurrentScreen(s)}
