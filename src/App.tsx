@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
   MOCK_SALONS,
   INITIAL_BOOKINGS,
   INITIAL_LOCATION,
+  LOGO_SQUARE,
 } from './data/mockData';
-import { readJSON, writeJSON } from './utils/storage';
+import { readJSON, removeKey, writeJSON } from './utils/storage';
 import { createId, createBookingReference } from './utils/id';
 import { REVIEWS_UPDATED_EVENT, serviceReviewsKey } from './utils/reviews';
+import { useAuth } from './context/AuthContext';
+import { useCloudState } from './hooks/useCloudState';
+import * as api from './lib/api';
+import { SyncBanner } from './components/SyncBanner';
 
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -29,6 +34,7 @@ import { NotificationOverlay } from './components/NotificationOverlay';
 import { NotificationDrawer } from './components/NotificationDrawer';
 
 const STORAGE_KEYS = {
+  salons: 'nexora_salons_cache',
   location: 'nexora_user_location',
   favorites: 'nexora_favorites',
   favoritePros: 'nexora_favorite_pros',
@@ -38,6 +44,8 @@ const STORAGE_KEYS = {
 } as const;
 
 const isArray = <T,>(value: unknown): value is T[] => Array.isArray(value);
+const isNonEmptyArray = <T,>(value: unknown): value is T[] =>
+  Array.isArray(value) && value.length > 0;
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
 const isUserLocation = (value: unknown): value is UserLocation =>
@@ -131,74 +139,150 @@ const DEFAULT_NOTIFICATIONS: AppNotification[] = [
 ];
 
 export default function App() {
+  const { status: authStatus, user, isOffline, signIn, signUp, signOut, resetPassword } = useAuth();
+  const userId = user?.id ?? null;
+  // Remote data is only used once we have an authenticated user.
+  const cloudEnabled = Boolean(userId);
+
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
-  const [salons] = useState<Salon[]>(MOCK_SALONS);
-  const [selectedSalon, setSelectedSalon] = useState<Salon>(MOCK_SALONS[0]);
-  const [selectedServices, setSelectedServices] = useState<Service[]>([
-    MOCK_SALONS[0].services[0],
-  ]);
-  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(
-    MOCK_SALONS[0].staff[0] || null
+
+  // ---- Salon catalog (public read, cached locally for offline) -------------
+  const loadSalons = useCallback(() => api.fetchSalons(), []);
+  const {
+    value: salons,
+    error: salonsError,
+  } = useCloudState<Salon[]>({
+    storageKey: STORAGE_KEYS.salons,
+    fallback: MOCK_SALONS,
+    validate: isNonEmptyArray,
+    load: loadSalons,
+    // The catalog is world-readable, so fetch it even when signed out.
+    enabled: !isOffline,
+  });
+
+  const [selectedSalonId, setSelectedSalonId] = useState<string | null>(null);
+  const selectedSalon = useMemo<Salon>(
+    () => salons.find((s) => s.id === selectedSalonId) ?? salons[0] ?? MOCK_SALONS[0],
+    [salons, selectedSalonId],
   );
 
-  const [userLocation, setUserLocation] = useState<UserLocation>(() =>
-    readJSON<UserLocation>(STORAGE_KEYS.location, INITIAL_LOCATION, isUserLocation),
-  );
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
 
-  const [favorites, setFavorites] = useState<string[]>(() =>
-    readJSON<string[]>(STORAGE_KEYS.favorites, DEFAULT_FAVORITES, isStringArray),
-  );
+  // Keep the current selection valid when the catalog finishes loading.
+  useEffect(() => {
+    setSelectedServices((prev) => {
+      if (prev.length > 0) {
+        const stillValid = prev.filter((p) => selectedSalon.services.some((s) => s.id === p.id));
+        if (stillValid.length > 0) return stillValid;
+      }
+      return selectedSalon.services.length > 0 ? [selectedSalon.services[0]] : [];
+    });
+    setSelectedStaff((prev) => {
+      if (prev && selectedSalon.staff.some((s) => s.id === prev.id)) return prev;
+      return selectedSalon.staff[0] ?? null;
+    });
+  }, [selectedSalon]);
 
-  const [favoriteProfessionals, setFavoriteProfessionals] = useState<SavedProfessional[]>(() =>
-    readJSON<SavedProfessional[]>(
-      STORAGE_KEYS.favoritePros,
-      DEFAULT_FAVORITE_PROFESSIONALS,
-      isArray,
-    ),
-  );
+  // ---- Per-user data -------------------------------------------------------
+  const loadLocation = useCallback(async () => {
+    if (!userId) return INITIAL_LOCATION;
+    const profile = await api.fetchProfile(userId);
+    return profile?.location ?? INITIAL_LOCATION;
+  }, [userId]);
 
-  const [favoriteServices, setFavoriteServices] = useState<SavedService[]>(() =>
-    readJSON<SavedService[]>(STORAGE_KEYS.favoriteServices, DEFAULT_FAVORITE_SERVICES, isArray),
-  );
+  const { value: userLocation, setValue: setUserLocation } = useCloudState<UserLocation>({
+    storageKey: STORAGE_KEYS.location,
+    fallback: INITIAL_LOCATION,
+    validate: isUserLocation,
+    load: loadLocation,
+    enabled: cloudEnabled,
+  });
 
-  const [bookings, setBookings] = useState<Booking[]>(() =>
-    readJSON<Booking[]>(STORAGE_KEYS.bookings, INITIAL_BOOKINGS, isArray),
+  const loadFavorites = useCallback(
+    () => (userId ? api.fetchFavoriteSalonIds(userId) : Promise.resolve<string[]>([])),
+    [userId],
   );
+  const { value: favorites, setValue: setFavorites } = useCloudState<string[]>({
+    storageKey: STORAGE_KEYS.favorites,
+    fallback: DEFAULT_FAVORITES,
+    validate: isStringArray,
+    load: loadFavorites,
+    enabled: cloudEnabled,
+  });
+
+  const loadFavoritePros = useCallback(
+    () => (userId ? api.fetchFavoriteProfessionals(userId) : Promise.resolve<SavedProfessional[]>([])),
+    [userId],
+  );
+  const { value: favoriteProfessionals, setValue: setFavoriteProfessionals } =
+    useCloudState<SavedProfessional[]>({
+      storageKey: STORAGE_KEYS.favoritePros,
+      fallback: DEFAULT_FAVORITE_PROFESSIONALS,
+      validate: isArray,
+      load: loadFavoritePros,
+      enabled: cloudEnabled,
+    });
+
+  const loadFavoriteServices = useCallback(
+    () => (userId ? api.fetchFavoriteServices(userId) : Promise.resolve<SavedService[]>([])),
+    [userId],
+  );
+  const { value: favoriteServices, setValue: setFavoriteServices } =
+    useCloudState<SavedService[]>({
+      storageKey: STORAGE_KEYS.favoriteServices,
+      fallback: DEFAULT_FAVORITE_SERVICES,
+      validate: isArray,
+      load: loadFavoriteServices,
+      enabled: cloudEnabled,
+    });
+
+  const loadBookings = useCallback(
+    () => (userId ? api.fetchBookings(userId) : Promise.resolve<Booking[]>([])),
+    [userId],
+  );
+  const {
+    value: bookings,
+    setValue: setBookings,
+    error: bookingsError,
+    refresh: refreshBookings,
+  } = useCloudState<Booking[]>({
+    storageKey: STORAGE_KEYS.bookings,
+    fallback: INITIAL_BOOKINGS,
+    validate: isArray,
+    load: loadBookings,
+    enabled: cloudEnabled,
+  });
 
   const [confirmedModalBooking, setConfirmedModalBooking] = useState<Booking | null>(null);
 
-  // Notification States
-  const [notifications, setNotifications] = useState<AppNotification[]>(() =>
-    readJSON<AppNotification[]>(STORAGE_KEYS.notifications, DEFAULT_NOTIFICATIONS, isArray),
+  const loadNotifications = useCallback(
+    () => (userId ? api.fetchNotifications(userId) : Promise.resolve<AppNotification[]>([])),
+    [userId],
   );
+  const { value: notifications, setValue: setNotifications } = useCloudState<AppNotification[]>({
+    storageKey: STORAGE_KEYS.notifications,
+    fallback: DEFAULT_NOTIFICATIONS,
+    validate: isArray,
+    load: loadNotifications,
+    enabled: cloudEnabled,
+  });
+
+  // Surfaced to the user as a dismissible banner rather than a silent console log.
+  const [syncError, setSyncError] = useState<string | null>(null);
+  useEffect(() => {
+    setSyncError(salonsError ?? bookingsError ?? null);
+  }, [salonsError, bookingsError]);
 
   const [activePushOverlay, setActivePushOverlay] = useState<AppNotification | null>(null);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
-  // Sync state to storage
-  useEffect(() => {
-    writeJSON(STORAGE_KEYS.favorites, favorites);
-  }, [favorites]);
+  // Local persistence is handled inside useCloudState (it mirrors every write
+  // to localStorage so the app keeps working offline).
 
-  useEffect(() => {
-    writeJSON(STORAGE_KEYS.favoritePros, favoriteProfessionals);
-  }, [favoriteProfessionals]);
-
-  useEffect(() => {
-    writeJSON(STORAGE_KEYS.favoriteServices, favoriteServices);
-  }, [favoriteServices]);
-
-  useEffect(() => {
-    writeJSON(STORAGE_KEYS.bookings, bookings);
-  }, [bookings]);
-
-  useEffect(() => {
-    writeJSON(STORAGE_KEYS.location, userLocation);
-  }, [userLocation]);
-
-  useEffect(() => {
-    writeJSON(STORAGE_KEYS.notifications, notifications);
-  }, [notifications]);
+  // Keeps the latest user id available to callbacks without re-creating them.
+  const userIdRef = useRef<string | null>(userId);
+  userIdRef.current = userId;
 
   // Timers that must be cancelled on unmount so they never call setState on a
   // dead component (and so a pending "snooze" doesn't fire after logout).
@@ -251,6 +335,20 @@ export default function App() {
       queueMicrotask(() => {
         setNotifications((prev) => [newNotif, ...prev]);
         setActivePushOverlay(newNotif);
+        if (userIdRef.current) {
+          void api
+            .createNotification(userIdRef.current, {
+              bookingId: newNotif.bookingId,
+              salonName: newNotif.salonName,
+              timeSlot: newNotif.timeSlot,
+              dateStr: newNotif.dateStr,
+              servicesSummary: newNotif.servicesSummary,
+              read: false,
+              type: newNotif.type,
+              message: newNotif.message,
+            })
+            .catch((e) => console.error('[notifications] persist failed', e));
+        }
       });
 
       // Trigger Browser Push Notification if browser supports and permitted
@@ -267,16 +365,29 @@ export default function App() {
 
       return currentBookings;
     });
-  }, []);
+  }, [setBookings, setNotifications]);
 
   const handleToggleFavorite = (salonId: string) => {
+    const wasFavorite = favorites.includes(salonId);
     setFavorites((prev) =>
-      prev.includes(salonId) ? prev.filter((id) => id !== salonId) : [...prev, salonId]
+      prev.includes(salonId) ? prev.filter((id) => id !== salonId) : [...prev, salonId],
     );
+
+    if (!userId) return;
+    const request = wasFavorite
+      ? api.removeFavoriteSalon(userId, salonId)
+      : api.addFavoriteSalon(userId, salonId);
+    request.catch((e) => {
+      // Roll the optimistic toggle back so the UI matches the server.
+      setFavorites((prev) =>
+        wasFavorite ? [...prev, salonId] : prev.filter((id) => id !== salonId),
+      );
+      setSyncError(e instanceof Error ? e.message : String(e));
+    });
   };
 
   const handleSelectSalon = (salon: Salon) => {
-    setSelectedSalon(salon);
+    setSelectedSalonId(salon.id);
     setSelectedServices(salon.services.length > 0 ? [salon.services[0]] : []);
     setSelectedStaff(salon.staff.length > 0 ? salon.staff[0] : null);
     setCurrentScreen('salon-detail');
@@ -318,6 +429,32 @@ export default function App() {
     setBookings((prev) => [newBooking, ...prev]);
     setConfirmedModalBooking(newBooking);
 
+    if (userId) {
+      api
+        .createBooking(userId, {
+          reference: newBooking.id,
+          salonId: bookingData.salon.id,
+          salonName: bookingData.salon.name,
+          services: bookingData.services,
+          totalAmount: bookingData.totalAmount,
+          dateStr: bookingData.dateStr,
+          timeSlot: bookingData.timeSlot,
+          staffName: bookingData.staffName,
+          locationArea: bookingData.salon.area,
+        })
+        .then((saved) => {
+          // Replace the optimistic row with the server's canonical version.
+          setBookings((prev) => prev.map((b) => (b.id === saved.id ? saved : b)));
+        })
+        .catch((e) => {
+          setBookings((prev) => prev.filter((b) => b.id !== newBooking.id));
+          setConfirmedModalBooking(null);
+          setSyncError(
+            `Booking could not be saved: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
+
     // Auto-schedule preview push notification for new booking after 1.5 seconds
     schedule(() => {
       triggerPushNotificationForBooking(newBooking.id);
@@ -325,28 +462,48 @@ export default function App() {
   };
 
   const handleCancelBooking = (bookingId: string) => {
+    const previous = bookings;
     setBookings((prev) =>
-      prev.map((b) => (b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
+      prev.map((b) => (b.id === bookingId ? { ...b, status: 'CANCELLED' } : b)),
     );
+    if (!userId) return;
+    api.cancelBooking(userId, bookingId).catch((e) => {
+      setBookings(previous);
+      setSyncError(e instanceof Error ? e.message : String(e));
+    });
   };
 
   const handleMarkBookingReviewed = (bookingId: string) => {
     setBookings((prev) =>
-      prev.map((b) => (b.id === bookingId ? { ...b, isReviewed: true } : b))
+      prev.map((b) => (b.id === bookingId ? { ...b, isReviewed: true } : b)),
     );
+    if (!userId) return;
+    api
+      .markBookingReviewed(userId, bookingId)
+      .catch((e) => console.error('[bookings] review flag failed', e));
   };
 
-  const handleAddReviewFromBooking = (salonId: string, newRev: Omit<ServiceReview, 'id' | 'date'>) => {
+  const handleAddReviewFromBooking = (
+    salonId: string,
+    newRev: Omit<ServiceReview, 'id' | 'date'>,
+  ) => {
+    const notifyListeners = () =>
+      window.dispatchEvent(new CustomEvent(REVIEWS_UPDATED_EVENT, { detail: { salonId } }));
+
+    if (userId) {
+      api
+        .createReview(userId, newRev)
+        .then(notifyListeners)
+        .catch((e) => setSyncError(e instanceof Error ? e.message : String(e)));
+      return;
+    }
+
+    // Signed out: keep the previous local-only behaviour.
     const storageKey = serviceReviewsKey(salonId);
     const currentReviews = readJSON<ServiceReview[]>(storageKey, [], isArray);
-    const created: ServiceReview = {
-      ...newRev,
-      id: createId('sr'),
-      date: 'Just now',
-    };
+    const created: ServiceReview = { ...newRev, id: createId('sr'), date: 'Just now' };
     writeJSON(storageKey, [created, ...currentReviews]);
-    // Let an open SalonDetailScreen know a review was added elsewhere.
-    window.dispatchEvent(new CustomEvent(REVIEWS_UPDATED_EVENT, { detail: { salonId } }));
+    notifyListeners();
   };
 
   const handleSnoozeNotification = (id: string) => {
@@ -368,6 +525,18 @@ export default function App() {
       });
     }, 10000);
   };
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : String(e));
+    } finally {
+      // Clear the local cache so the next user does not inherit this session's data.
+      Object.values(STORAGE_KEYS).forEach((key) => removeKey(key));
+      setCurrentScreen('welcome');
+    }
+  }, [signOut]);
 
   // Screen Title helper
   const getHeaderTitle = (): string => {
@@ -408,8 +577,40 @@ export default function App() {
     currentScreen === 'settings';
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // While Supabase restores a persisted session, avoid flashing the login screen.
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#fcf9f8] flex flex-col items-center justify-center gap-3">
+        <img src={LOGO_SQUARE} alt="" className="w-16 h-16 rounded-2xl object-contain" />
+        <span className="material-symbols-outlined text-[#e6007e] animate-spin text-[28px]">
+          progress_activity
+        </span>
+        <p className="text-[12px] text-[#5a3f47] font-medium">Restoring your session...</p>
+      </div>
+    );
+  }
+
+  // Signed-out users get the welcome/auth screen unless they chose guest mode.
+  if (authStatus === 'signed-out' && currentScreen === 'welcome') {
+    return (
+      <WelcomeScreen
+        onContinue={() => setCurrentScreen('home')}
+        onSignIn={signIn}
+        onSignUp={signUp}
+        onResetPassword={resetPassword}
+        offline={isOffline}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fff8f8] text-[#26181c] font-['Inter',sans-serif] relative flex flex-col justify-between">
+      <SyncBanner
+        message={syncError}
+        onDismiss={() => setSyncError(null)}
+        offline={isOffline}
+      />
+
       {/* Floating Interactive Push Notification Overlay */}
       <NotificationOverlay
         notification={activePushOverlay}
@@ -424,10 +625,22 @@ export default function App() {
         onClose={() => setIsNotificationDrawerOpen(false)}
         notifications={notifications}
         bookings={bookings}
-        onMarkAllAsRead={() =>
-          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-        }
-        onClearAll={() => setNotifications([])}
+        onMarkAllAsRead={() => {
+          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+          if (userId) {
+            api
+              .markAllNotificationsRead(userId)
+              .catch((e) => console.error('[notifications] mark read failed', e));
+          }
+        }}
+        onClearAll={() => {
+          setNotifications([]);
+          if (userId) {
+            api
+              .clearNotifications(userId)
+              .catch((e) => console.error('[notifications] clear failed', e));
+          }
+        }}
         onTriggerTestNotification={triggerPushNotificationForBooking}
         onNavigate={(screen) => setCurrentScreen(screen)}
       />
@@ -463,7 +676,13 @@ export default function App() {
           } ${SCREENS_WITHOUT_GLOBAL_HEADER.has(currentScreen) ? '' : 'pt-20'}`}
         >
           {currentScreen === 'welcome' && (
-            <WelcomeScreen onContinue={() => setCurrentScreen('home')} />
+            <WelcomeScreen
+              onContinue={() => setCurrentScreen('home')}
+              onSignIn={signIn}
+              onSignUp={signUp}
+              onResetPassword={resetPassword}
+              offline={isOffline}
+            />
           )}
 
           {currentScreen === 'home' && (
@@ -535,19 +754,39 @@ export default function App() {
               onToggleFavoriteSalon={handleToggleFavorite}
               onToggleFavoriteProfessional={(proId) => {
                 setFavoriteProfessionals((prev) => prev.filter((p) => p.id !== proId));
+                if (userId) {
+                  api
+                    .removeFavoriteProfessional(userId, proId)
+                    .catch((e) => setSyncError(e instanceof Error ? e.message : String(e)));
+                }
               }}
               onToggleFavoriteService={(servId) => {
                 setFavoriteServices((prev) => prev.filter((s) => s.id !== servId));
+                if (userId) {
+                  api
+                    .removeFavoriteService(userId, servId)
+                    .catch((e) => setSyncError(e instanceof Error ? e.message : String(e)));
+                }
               }}
               onRestoreProfessional={(pro) => {
                 setFavoriteProfessionals((prev) =>
                   prev.some((p) => p.id === pro.id) ? prev : [...prev, pro],
                 );
+                if (userId) {
+                  api
+                    .addFavoriteProfessional(userId, pro)
+                    .catch((e) => setSyncError(e instanceof Error ? e.message : String(e)));
+                }
               }}
               onRestoreService={(service) => {
                 setFavoriteServices((prev) =>
                   prev.some((s) => s.id === service.id) ? prev : [...prev, service],
                 );
+                if (userId) {
+                  api
+                    .addFavoriteService(userId, service)
+                    .catch((e) => setSyncError(e instanceof Error ? e.message : String(e)));
+                }
               }}
               onSelectSalon={handleSelectSalon}
               onNavigate={(s) => setCurrentScreen(s)}
@@ -581,7 +820,7 @@ export default function App() {
             <SettingsScreen
               onBack={() => setCurrentScreen('profile')}
               onNavigate={(s) => setCurrentScreen(s)}
-              onLogout={() => setCurrentScreen('welcome')}
+              onLogout={handleLogout}
             />
           )}
 
@@ -591,6 +830,11 @@ export default function App() {
               onSelectLocation={(loc) => {
                 setUserLocation(loc);
                 setCurrentScreen('home');
+                if (userId) {
+                  api
+                    .updateProfile(userId, { location: loc })
+                    .catch((e) => console.error('[profile] location save failed', e));
+                }
               }}
               onClose={() => setCurrentScreen('home')}
             />

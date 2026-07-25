@@ -2,10 +2,22 @@ import React, { useState } from 'react';
 import { WELCOME_BG_URL, LOGO_SQUARE } from '../data/mockData';
 
 interface WelcomeScreenProps {
+  /** Continue without an account (local-only demo data). */
   onContinue: () => void;
+  onSignIn: (email: string, password: string) => Promise<void>;
+  onSignUp: (email: string, password: string, fullName?: string) => Promise<void>;
+  onResetPassword: (email: string) => Promise<void>;
+  /** True when Supabase is not configured - auth controls are then disabled. */
+  offline?: boolean;
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onContinue,
+  onSignIn,
+  onSignUp,
+  onResetPassword,
+  offline = false,
+}) => {
   const [isSplash, setIsSplash] = useState<boolean>(true);
   const [authMode, setAuthMode] = useState<'welcome' | 'login' | 'signup'>('welcome');
   const [email, setEmail] = useState<string>('');
@@ -13,6 +25,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string>('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [simulatedState, setSimulatedState] = useState<'normal' | 'offline' | 'update'>('normal');
 
   // Auto transition from splash after 1.8 seconds unless manually testing states
@@ -25,14 +41,55 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
     }
   }, [simulatedState]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setInfoMessage(null);
+
     if (!email || !email.includes('@')) {
       setEmailError('Enter a valid email address');
       return;
     }
     setEmailError(null);
-    onContinue();
+
+    if (password.length < 6) {
+      setFormError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (authMode === 'signup') {
+        await onSignUp(email.trim(), password, fullName.trim() || undefined);
+        // With email confirmation enabled there is no session yet, so tell the
+        // user to check their inbox instead of silently doing nothing.
+        setInfoMessage(
+          'Account created. If email confirmation is enabled, check your inbox to activate it.',
+        );
+      } else {
+        await onSignIn(email.trim(), password);
+        // On success the auth listener swaps this screen out automatically.
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setFormError(null);
+    setInfoMessage(null);
+    if (!email || !email.includes('@')) {
+      setEmailError('Enter your email address first, then tap Forgot Password.');
+      return;
+    }
+    try {
+      await onResetPassword(email.trim());
+      setInfoMessage('Password reset link sent - check your email.');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   if (isSplash) {
@@ -225,6 +282,29 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
               </p>
             </div>
 
+            {/* Full Name (sign up only) */}
+            {authMode === 'signup' && (
+              <div className="flex flex-col gap-1.5 group">
+                <label className="text-xs font-bold text-[#26181c] ml-1" htmlFor="fullName">
+                  Full Name
+                </label>
+                <div className="relative w-full rounded-2xl bg-white shadow-2xs transition-all ring-1 ring-[#e8e8e8] focus-within:ring-[#e6007e]">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8c7077]">
+                    <span className="material-symbols-outlined text-[20px]">person</span>
+                  </div>
+                  <input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Priya Sharma"
+                    autoComplete="name"
+                    className="w-full h-[50px] bg-transparent pl-11 pr-4 rounded-2xl text-xs text-[#26181c] font-medium placeholder:text-[#8c7077]/60 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Email Field */}
             <div className="flex flex-col gap-1.5 group">
               <label className="text-xs font-bold text-[#26181c] ml-1" htmlFor="email">
@@ -248,6 +328,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
                     if (emailError) setEmailError(null);
                   }}
                   placeholder="name@example.com"
+                  autoComplete="email"
                   className="w-full h-[50px] bg-transparent pl-11 pr-4 rounded-2xl text-xs text-[#26181c] font-medium placeholder:text-[#8c7077]/60 focus:outline-none"
                 />
               </div>
@@ -275,6 +356,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                  minLength={6}
                   className="w-full h-[50px] bg-transparent pl-11 pr-12 rounded-2xl text-xs text-[#26181c] font-medium placeholder:text-[#8c7077]/60 focus:outline-none"
                 />
                 <button
@@ -318,7 +401,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
 
                 <button
                   type="button"
-                  onClick={() => alert('Password reset link sent to your email.')}
+                  onClick={handleForgotPassword}
                   className="text-[#e6007e] font-bold hover:underline cursor-pointer"
                 >
                   Forgot Password?
@@ -326,13 +409,54 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
               </div>
             )}
 
+            {/* Server / validation feedback */}
+            {formError && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"
+              >
+                <span className="material-symbols-outlined text-[15px] shrink-0">error</span>
+                <span>{formError}</span>
+              </div>
+            )}
+            {infoMessage && (
+              <div
+                role="status"
+                className="flex items-start gap-2 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2"
+              >
+                <span className="material-symbols-outlined text-[15px] shrink-0">mark_email_read</span>
+                <span>{infoMessage}</span>
+              </div>
+            )}
+            {offline && (
+              <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2">
+                <span className="material-symbols-outlined text-[15px] shrink-0">info</span>
+                <span>
+                  Supabase is not configured, so accounts are unavailable. Use
+                  &ldquo;Continue as Guest&rdquo; to explore with local demo data.
+                </span>
+              </div>
+            )}
+
             {/* Submit Action */}
             <button
               type="submit"
-              className="w-full h-[52px] bg-[#e6007e] hover:bg-[#c9006e] text-white font-bold text-sm rounded-2xl shadow-lg shadow-[#e6007e]/20 transition-all duration-300 active:scale-98 flex items-center justify-center gap-2 cursor-pointer mt-1"
+              disabled={isSubmitting || offline}
+              className="w-full h-[52px] bg-[#e6007e] hover:bg-[#c9006e] disabled:bg-[#e0bec6] disabled:cursor-not-allowed text-white font-bold text-sm rounded-2xl shadow-lg shadow-[#e6007e]/20 transition-all duration-300 active:scale-98 flex items-center justify-center gap-2 cursor-pointer mt-1"
             >
-              {authMode === 'login' ? 'Log In' : 'Create Account'}
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              {isSubmitting ? (
+                <>
+                  <span className="material-symbols-outlined text-[18px] animate-spin">
+                    progress_activity
+                  </span>
+                  {authMode === 'login' ? 'Logging in...' : 'Creating account...'}
+                </>
+              ) : (
+                <>
+                  {authMode === 'login' ? 'Log In' : 'Create Account'}
+                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </>
+              )}
             </button>
 
             {/* Divider */}
@@ -366,6 +490,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
                   onClick={() => {
                     setAuthMode(authMode === 'login' ? 'signup' : 'login');
                     setEmailError(null);
+                    setFormError(null);
+                    setInfoMessage(null);
                   }}
                   className="font-extrabold text-[#e6007e] hover:underline ml-1 cursor-pointer"
                 >

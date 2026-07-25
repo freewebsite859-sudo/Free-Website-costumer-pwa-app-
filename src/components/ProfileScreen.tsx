@@ -3,6 +3,8 @@ import { AVATAR_URL } from '../data/mockData';
 import { Screen, UserLocation, Booking, Address } from '../types';
 import { readJSON, readString, writeJSON, writeString } from '../utils/storage';
 import { createId } from '../utils/id';
+import { useAuth } from '../context/AuthContext';
+import * as api from '../lib/api';
 
 interface ProfileScreenProps {
   location: UserLocation;
@@ -104,6 +106,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onNavigate,
   onOpenLocation,
 }) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   // Local states for customer profile
   const [name, setName] = useState<string>(() => readString('profile_name') || 'Priya Sharma');
   const [email, setEmail] = useState<string>(() => readString('profile_email') || 'priya.sharma@example.com');
@@ -143,6 +147,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     ),
   );
 
+
+  // Hydrate the profile from Supabase for signed-in users.
+  React.useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    api
+      .fetchProfile(userId)
+      .then((profile) => {
+        if (!active || !profile) return;
+        if (profile.fullName) setName(profile.fullName);
+        if (profile.email) setEmail(profile.email);
+        if (profile.phone) setPhone(profile.phone);
+        if (profile.avatarUrl) setAvatar(profile.avatarUrl);
+        if (profile.dateOfBirth) setDob(profile.dateOfBirth);
+        if (profile.gender) setGender(profile.gender);
+        if (profile.preferredCity) setPreferredCity(profile.preferredCity);
+        if (profile.preferredArea) setPreferredArea(profile.preferredArea);
+        if (profile.language) setSelectedLanguage(profile.language);
+      })
+      .catch((e) => console.error('[profile] load failed', e));
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   // Re-sync when another screen (SavedAddressesScreen) edited the same key.
   React.useEffect(() => {
@@ -211,6 +239,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
     setIsEditOpen(false);
     triggerToast('Profile updated successfully!');
+
+    if (userId) {
+      api
+        .updateProfile(userId, {
+          fullName: tempName,
+          email: tempEmail,
+          phone: tempPhone,
+          avatarUrl: tempAvatar,
+          dateOfBirth: tempDob,
+          gender: tempGender,
+          preferredCity: tempCity,
+          preferredArea: tempArea,
+        })
+        .catch((e) => {
+          console.error('[profile] save failed', e);
+          triggerToast('Saved locally, but syncing to the cloud failed.');
+        });
+    }
   };
 
   // Handler for sending mock support messages

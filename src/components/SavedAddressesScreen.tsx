@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Address } from '../types';
 import { readJSON, writeJSON } from '../utils/storage';
 import { createId } from '../utils/id';
+import { useAuth } from '../context/AuthContext';
+import * as api from '../lib/api';
 
 interface SavedAddressesScreenProps {
   onBack: () => void;
@@ -33,6 +35,8 @@ const DEFAULT_ADDRESSES: Address[] = [
 ];
 
 export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({ onBack }) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [addresses, setAddresses] = useState<Address[]>(() =>
     readJSON<Address[]>(ADDRESSES_KEY, DEFAULT_ADDRESSES, (v): v is Address[] => Array.isArray(v)),
   );
@@ -56,6 +60,21 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({ onBa
     writeJSON(ADDRESSES_KEY, addresses);
   }, [addresses]);
 
+  // Pull the authoritative list for signed-in users.
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    api
+      .fetchAddresses(userId)
+      .then((remote) => {
+        if (active) setAddresses(remote);
+      })
+      .catch((e) => console.error('[addresses] load failed', e));
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
   const triggerToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -69,6 +88,11 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({ onBa
       }))
     );
     triggerToast('Default address updated!');
+    if (userId) {
+      api
+        .setDefaultAddress(userId, id)
+        .catch((e) => console.error('[addresses] set default failed', e));
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -82,6 +106,9 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({ onBa
       return filtered;
     });
     triggerToast('Address deleted successfully!');
+    if (userId) {
+      api.deleteAddress(userId, id).catch((e) => console.error('[addresses] delete failed', e));
+    }
   };
 
   const handleOpenForm = (address?: Address) => {
@@ -171,6 +198,17 @@ export const SavedAddressesScreen: React.FC<SavedAddressesScreenProps> = ({ onBa
 
     triggerToast(selectedAddress ? 'Address updated!' : 'Address added successfully!');
     setView('list');
+
+    if (userId) {
+      api
+        .upsertAddress(userId, {
+          ...(selectedAddress ? { id: selectedAddress.id } : {}),
+          ...newAddressData,
+        })
+        .then(() => api.fetchAddresses(userId))
+        .then(setAddresses)
+        .catch((e) => console.error('[addresses] save failed', e));
+    }
   };
 
   return (

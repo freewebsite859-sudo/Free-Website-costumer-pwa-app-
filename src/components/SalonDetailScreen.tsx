@@ -7,6 +7,8 @@ import { SoundControlButton } from './SoundControlButton';
 import { readJSON, writeJSON } from '../utils/storage';
 import { createId } from '../utils/id';
 import { REVIEWS_UPDATED_EVENT, serviceReviewsKey } from '../utils/reviews';
+import { useAuth } from '../context/AuthContext';
+import * as api from '../lib/api';
 
 const WAITLIST_STORAGE_KEY = 'nexora_waitlist_entries';
 
@@ -105,6 +107,9 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   isFavorite,
   onToggleFavorite,
 }) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   const [activeTab, setActiveTab] = useState<'services' | 'slots' | 'staff' | 'about' | 'reviews'>('services');
   const [activeGalleryIdx, setActiveGalleryIdx] = useState<number>(0);
 
@@ -167,6 +172,16 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
 
   const handleJoinWaitlistSuccess = (newEntry: WaitlistEntry) => {
     setWaitlistEntries((prev) => [newEntry, ...prev.filter((e) => e.id !== newEntry.id)]);
+    if (!userId) return;
+    api
+      .createWaitlistEntry(userId, newEntry)
+      .then((saved) => {
+        setWaitlistEntries((prev) => prev.map((e) => (e.id === newEntry.id ? saved : e)));
+      })
+      .catch((e) => {
+        setWaitlistEntries((prev) => prev.filter((entry) => entry.id !== newEntry.id));
+        console.error('[waitlist] join failed', e);
+      });
   };
 
   const handleSimulateOpening = (entry: WaitlistEntry) => {
@@ -175,6 +190,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     setWaitlistEntries((prev) =>
       prev.map((e) => (e.id === entry.id ? { ...e, status: 'NOTIFIED' } : e))
     );
+    if (userId) {
+      api
+        .updateWaitlistStatus(userId, entry.id, 'NOTIFIED')
+        .catch((e) => console.error('[waitlist] status update failed', e));
+    }
   };
 
   // The alert toast previously stayed on screen forever, covering the header.
@@ -186,6 +206,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
 
   const handleRemoveWaitlist = (entryId: string) => {
     setWaitlistEntries((prev) => prev.filter((e) => e.id !== entryId));
+    if (userId) {
+      api
+        .deleteWaitlistEntry(userId, entryId)
+        .catch((e) => console.error('[waitlist] remove failed', e));
+    }
   };
 
   const [serviceReviews, setServiceReviews] = useState<ServiceReview[]>(() =>
@@ -215,6 +240,23 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     writeJSON(serviceReviewsKey(salon.id), serviceReviews);
   }, [serviceReviews, salon.id]);
 
+  // Prefer server reviews (they are world-readable) and fall back to the cache.
+  useEffect(() => {
+    let active = true;
+    api
+      .fetchReviewsForSalon(salon.id)
+      .then((remote) => {
+        if (!active) return;
+        setServiceReviews(remote.length > 0 ? remote : buildDefaultReviews(salon));
+      })
+      .catch(() => {
+        /* offline or unconfigured - the localStorage value already loaded */
+      });
+    return () => {
+      active = false;
+    };
+  }, [salon]);
+
   // Pick up reviews submitted from the Bookings screen while this screen is mounted.
   useEffect(() => {
     const handler = (event: Event) => {
@@ -233,12 +275,20 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   }, [salon.id]);
 
   const handleAddReview = (newRev: Omit<ServiceReview, 'id' | 'date'>) => {
-    const created: ServiceReview = {
-      ...newRev,
-      id: createId('sr'),
-      date: 'Just now',
-    };
-    setServiceReviews((prev) => [created, ...prev]);
+    const optimistic: ServiceReview = { ...newRev, id: createId('sr'), date: 'Just now' };
+    setServiceReviews((prev) => [optimistic, ...prev]);
+
+    if (!userId) return; // guest: local only
+    api
+      .createReview(userId, newRev)
+      .then((saved) => {
+        // Swap the optimistic entry for the persisted row.
+        setServiceReviews((prev) => prev.map((r) => (r.id === optimistic.id ? saved : r)));
+      })
+      .catch((e) => {
+        setServiceReviews((prev) => prev.filter((r) => r.id !== optimistic.id));
+        console.error('[reviews] publish failed', e);
+      });
   };
 
   const openReviewForService = (serviceId?: string) => {

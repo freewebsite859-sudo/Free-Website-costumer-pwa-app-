@@ -10,7 +10,9 @@
       "DOM.Iterable"
     ],
     "types": [
-      "vite/client"
+      "vite/client",
+      "vite-plugin-pwa/react",
+      "vite-plugin-pwa/client"
     ],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
