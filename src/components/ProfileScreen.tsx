@@ -8,6 +8,7 @@ interface ProfileScreenProps {
   bookings: Booking[];
   onNavigate: (screen: Screen) => void;
   onOpenLocation: () => void;
+  onAvatarUpdate?: (avatar: string) => void;
 }
 
 interface MenuItemProps {
@@ -52,7 +53,7 @@ interface ModalProps {
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-transparent" onClick={onClose} />
       <div className="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[24px] shadow-2xl border border-[#e8e8e8] flex flex-col relative max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom duration-300">
         <div className="flex items-center justify-between p-4 border-b border-[#e8e8e8] bg-[#fff8f8]">
@@ -78,6 +79,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   bookings,
   onNavigate,
   onOpenLocation,
+  onAvatarUpdate,
 }) => {
   // Local states for customer profile
   const [name, setName] = useState<string>(() => localStorage.getItem('profile_name') || 'Priya Sharma');
@@ -168,6 +170,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Toast notification state
   const [toast, setToast] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const triggerToast = (msg: string) => {
     setToast(msg);
@@ -185,6 +188,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     tempCity: string,
     tempArea: string
   ) => {
+    if (!tempName.trim()) {
+      setNameError('Full Name is required');
+      return;
+    }
+    if (tempName.trim().length < 2) {
+      setNameError('Full Name must be at least 2 characters');
+      return;
+    }
+    setNameError(null);
+
     setName(tempName);
     setEmail(tempEmail);
     setPhone(tempPhone);
@@ -202,6 +215,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     localStorage.setItem('profile_gender', tempGender);
     localStorage.setItem('profile_city', tempCity);
     localStorage.setItem('profile_area', tempArea);
+
+    if (onAvatarUpdate) {
+      onAvatarUpdate(tempAvatar);
+    }
 
     setIsEditOpen(false);
     triggerToast('Profile updated successfully!');
@@ -373,14 +390,41 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setEditFormGender(gender);
     setEditFormCity(preferredCity);
     setEditFormArea(preferredArea);
+    setNameError(null);
     setIsEditOpen(true);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        triggerToast('Image is too large. Please select an image under 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result;
+        if (typeof base64 === 'string') {
+          setEditFormAvatar(base64);
+          triggerToast('Photo loaded successfully! Save Changes to apply.');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
     <div className="flex flex-col w-full gap-5 pb-28 pt-2 animate-in fade-in relative">
+      <input
+        type="file"
+        id="avatar-upload-file-input"
+        accept="image/*"
+        onChange={handlePhotoUpload}
+        className="hidden"
+      />
       {/* Toast Notification Container */}
       {toast ? (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg flex items-center justify-between z-50 transition-all duration-300 transform translate-y-0 opacity-100 border border-[#e6007e]/30">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg flex items-center justify-between z-50 transition-all duration-300 transform translate-y-0 opacity-100 border border-[#e6007e]/30">
           <span className="font-semibold text-[13px] flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px] text-[#e6007e]">verified</span>
             {toast}
@@ -592,7 +636,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="bg-white rounded-2xl border border-[#e8e8e8] overflow-hidden shadow-xs">
             <MenuItem
               icon="support_agent"
-              label="Support"
+              label="Contact Support"
               badge="Online"
               onClick={() => onNavigate('support')}
             />
@@ -681,12 +725,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               />
               <button 
                 type="button"
-                className="absolute bottom-0 right-0 w-8 h-8 bg-[#b90064] text-white rounded-full flex items-center justify-center shadow-md transform hover:scale-105 transition-transform"
+                className="absolute bottom-0 right-0 w-8 h-8 bg-[#b90064] text-white rounded-full flex items-center justify-center shadow-md transform hover:scale-105 transition-transform cursor-pointer"
                 onClick={() => {
-                  triggerToast('Simulating Photo Upload Picker. Select from the premium presets below!');
+                  document.getElementById('avatar-upload-file-input')?.click();
                 }}
               >
-                <span className="material-symbols-outlined text-[18px]">edit</span>
+                <span className="material-symbols-outlined text-[18px]">photo_camera</span>
               </button>
             </div>
             
@@ -716,18 +760,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const randomAvatar = PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)];
-                    setEditFormAvatar(randomAvatar);
-                    triggerToast('Random premium avatar selected!');
+                    document.getElementById('avatar-upload-file-input')?.click();
                   }}
-                  className="text-[11px] text-[#b90064] font-semibold px-3 py-1 bg-[#ffe8ed] rounded-full hover:opacity-80 transition-colors"
+                  className="text-[11px] text-white font-semibold px-4 py-1.5 bg-[#b90064] hover:bg-[#8e004b] rounded-full transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
                 >
-                  Change Photo
+                  <span className="material-symbols-outlined text-[13px]">upload</span>
+                  Upload Photo
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditFormAvatar(AVATAR_URL)}
-                  className="text-[11px] text-[#594047] font-semibold px-3 py-1 hover:bg-slate-100 rounded-full transition-colors"
+                  className="text-[11px] text-[#594047] font-semibold px-3 py-1.5 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
                 >
                   Remove
                 </button>
@@ -746,24 +789,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-bold text-[#594047] ml-1" htmlFor="fullName">Full Name</label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#8c7077] text-[20px]">person</span>
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8c7077] text-[20px] pointer-events-none">person</span>
                   <input
                     id="fullName"
                     type="text"
                     value={editFormName}
-                    onChange={(e) => setEditFormName(e.target.value)}
-                    className="w-full h-12 bg-white text-[14px] text-[#26181c] rounded-xl pl-11 pr-4 border border-[#e8e8e8] focus:outline-none focus:ring-2 focus:ring-[#b90064] transition-all"
+                    onChange={(e) => {
+                      setEditFormName(e.target.value);
+                      if (e.target.value.trim().length >= 2) {
+                        setNameError(null);
+                      }
+                    }}
+                    className={`w-full h-12 bg-white text-[14px] text-[#26181c] rounded-xl pl-10 pr-4 py-2 border focus:outline-none focus:ring-2 focus:ring-[#b90064] transition-all ${
+                      nameError ? 'border-red-500 ring-2 ring-red-100' : 'border-[#e8e8e8]'
+                    }`}
                     placeholder="e.g. Priya Sharma"
                   />
                 </div>
+                {nameError && (
+                  <span className="text-[11px] text-red-500 font-bold ml-1 mt-0.5 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px]">error</span>
+                    {nameError}
+                  </span>
+                )}
               </div>
 
               {/* Mobile Number */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-bold text-[#594047] ml-1" htmlFor="mobile">Mobile Number</label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#8c7077] text-[20px]">phone_iphone</span>
-                  <div className="absolute left-11 flex items-center text-[14px] text-[#26181c]">
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#8c7077] text-[20px] pointer-events-none">phone_iphone</span>
+                  <div className="absolute left-11 top-1/2 -translate-y-1/2 flex items-center text-[14px] text-[#26181c] pointer-events-none">
                     <span>+91</span>
                     <div className="w-px h-5 bg-[#e8e8e8] mx-2"></div>
                   </div>
@@ -791,7 +847,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   </div>
                 </div>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#8c7077] text-[20px]">mail</span>
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#8c7077] text-[20px] pointer-events-none">mail</span>
                   <input
                     id="email"
                     type="email"
@@ -799,7 +855,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     readOnly
                     className="w-full h-12 bg-[#ffe8ed]/30 text-[14px] text-[#594047] rounded-xl pl-11 pr-11 border border-[#e8e8e8] opacity-70 cursor-not-allowed"
                   />
-                  <span className="material-symbols-outlined absolute right-4 text-[#8c7077] text-[18px]">lock</span>
+                  <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[#8c7077] text-[18px] pointer-events-none">lock</span>
                 </div>
                 <p className="text-[11px] text-[#8c7077]/80 ml-1 leading-normal">
                   Email cannot be changed directly for security purposes.{' '}
@@ -824,7 +880,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-bold text-[#594047] ml-1" htmlFor="dob">Date of Birth</label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#8c7077] text-[20px]">calendar_month</span>
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#8c7077] text-[20px] pointer-events-none">calendar_month</span>
                   <input
                     id="dob"
                     type="date"

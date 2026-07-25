@@ -42,7 +42,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   const activeBookings = bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'PENDING');
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
       <div className="bg-white w-full max-w-md rounded-t-[28px] sm:rounded-[28px] max-h-[85vh] flex flex-col shadow-2xl border border-[#f0d8e2] overflow-hidden animate-in slide-in-from-bottom duration-300">
         
         {/* Header */}

@@ -10,6 +10,7 @@ interface HeaderProps {
   showBack?: boolean;
   unreadNotificationCount?: number;
   onOpenNotifications?: () => void;
+  userAvatar?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   showBack = false,
   unreadNotificationCount = 0,
   onOpenNotifications,
+  userAvatar,
 }) => {
   return (
     <header className="fixed top-0 w-full z-50 bg-white/85 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe">
@@ -87,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Profile Settings"
           >
             <img
-              src={AVATAR_URL}
+              src={userAvatar || AVATAR_URL}
               alt="User Profile Avatar"
               className="w-8 h-8 rounded-full object-cover border border-[#e0bec6]"
             />

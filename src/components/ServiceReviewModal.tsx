@@ -19,7 +19,7 @@ export const ServiceReviewModal: React.FC<ServiceReviewModalProps> = ({
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
-  const [author, setAuthor] = useState<string>('Priya Sharma');
+  const [author, setAuthor] = useState<string>(() => localStorage.getItem('profile_name') || 'Priya Sharma');
   const [comment, setComment] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [submittedSuccess, setSubmittedSuccess] = useState<boolean>(false);
@@ -80,7 +80,7 @@ export const ServiceReviewModal: React.FC<ServiceReviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
       <div className="bg-white w-full max-w-md rounded-t-[28px] sm:rounded-[28px] p-5 shadow-2xl border border-[#f0d8e2] overflow-hidden animate-in slide-in-from-bottom duration-300 relative">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#f3e1e8]">

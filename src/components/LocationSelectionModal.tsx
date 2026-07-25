@@ -63,9 +63,9 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col max-w-md mx-auto overflow-y-auto animate-in fade-in">
+    <div className="fixed inset-0 z-[100] bg-white flex flex-col max-w-md mx-auto overflow-y-auto animate-in fade-in">
       {/* Fixed Navigation Header */}
-      <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-xl border-b border-[#e8e8e8]/50 pt-safe max-w-md mx-auto">
+      <header className="fixed top-0 inset-x-0 z-[100] bg-white/90 backdrop-blur-xl border-b border-[#e8e8e8]/50 pt-safe max-w-md mx-auto">
         <div className="h-16 px-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -289,7 +289,7 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
 
       {/* Permission Denied Modal Simulation */}
       {showDeniedModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-5">
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-5">
           <div className="bg-white rounded-[24px] p-6 max-w-[320px] shadow-2xl flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-3">
               <span className="material-symbols-outlined text-[28px]">location_disabled</span>

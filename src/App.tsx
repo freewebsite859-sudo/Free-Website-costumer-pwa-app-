@@ -125,6 +125,9 @@ export default function App() {
 
   const [activePushOverlay, setActivePushOverlay] = useState<AppNotification | null>(null);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+  const [profileAvatar, setProfileAvatar] = useState<string>(() => {
+    return localStorage.getItem('profile_avatar') || '';
+  });
 
   // Sync state to localStorage
   useEffect(() => {
@@ -220,7 +223,9 @@ export default function App() {
     dateStr: string;
     timeSlot: string;
     staffName?: string;
+    status?: 'CONFIRMED' | 'payment_pending';
   }) => {
+    const status = bookingData.status || 'CONFIRMED';
     const newBooking: Booking = {
       id: `NX-${Math.floor(1000 + Math.random() * 9000)}`,
       salonId: bookingData.salon.id,
@@ -229,19 +234,24 @@ export default function App() {
       totalAmount: bookingData.totalAmount,
       dateStr: bookingData.dateStr,
       timeSlot: bookingData.timeSlot,
-      status: 'CONFIRMED',
+      status: status,
       staffName: bookingData.staffName,
       locationArea: bookingData.salon.area,
       createdTime: Date.now(),
     };
 
     setBookings((prev) => [newBooking, ...prev]);
-    setConfirmedModalBooking(newBooking);
 
-    // Auto-schedule preview push notification for new booking after 1.5 seconds
-    setTimeout(() => {
-      triggerPushNotificationForBooking(newBooking.id);
-    }, 1500);
+    if (status === 'CONFIRMED') {
+      setConfirmedModalBooking(newBooking);
+
+      // Auto-schedule preview push notification for new booking after 1.5 seconds
+      setTimeout(() => {
+        triggerPushNotificationForBooking(newBooking.id);
+      }, 1500);
+    }
+    
+    return newBooking;
   };
 
   const handleCancelBooking = (bookingId: string) => {
@@ -357,7 +367,7 @@ export default function App() {
       {/* Render Header for main views (outside max-w-md container for full viewport width) */}
       {currentScreen !== 'welcome' &&
         currentScreen !== 'splash' &&
-        currentScreen !== 'location-modal' && (
+        currentScreen !== 'location-modal' && currentScreen !== 'salon-detail' && currentScreen !== 'checkout' && (
           <Header
             currentScreen={currentScreen}
             title={getHeaderTitle()}
@@ -374,17 +384,18 @@ export default function App() {
             }}
             unreadNotificationCount={unreadCount}
             onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
+            userAvatar={profileAvatar}
           />
         )}
 
       <div className="w-full max-w-md mx-auto flex-1 flex flex-col relative">
         {/* Content Body Container */}
         <main
-          className={`flex-1 w-full px-5 ${
+          className={`flex-1 w-full ${
             currentScreen !== 'welcome' &&
             currentScreen !== 'splash' &&
-            currentScreen !== 'location-modal'
-              ? 'pt-20'
+            currentScreen !== 'location-modal' && currentScreen !== 'salon-detail' && currentScreen !== 'checkout'
+              ? 'px-5 pt-20'
               : ''
           }`}
         >
@@ -478,6 +489,7 @@ export default function App() {
               bookings={bookings}
               onNavigate={(s) => setCurrentScreen(s)}
               onOpenLocation={() => setCurrentScreen('location-modal')}
+              onAvatarUpdate={(newAvatar) => setProfileAvatar(newAvatar)}
             />
           )}
 

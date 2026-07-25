@@ -13,7 +13,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
   onClose,
 }) => {
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-5 animate-in fade-in max-w-md mx-auto">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-5 animate-in fade-in max-w-md mx-auto">
       <div className="bg-white rounded-[28px] p-6 w-full shadow-2xl flex flex-col items-center text-center animate-in zoom-in duration-300 border border-[#e8e8e8]">
         {/* Success Icon Badge */}
         <div className="w-20 h-20 rounded-full bg-[#fde7f3] text-[#e6007e] flex items-center justify-center mb-4 shadow-inner relative">
@@ -22,7 +22,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
         </div>
 
         <span className="px-3 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-full uppercase tracking-wider mb-2">
-          Appointment Confirmed
+          Booking Confirmed
         </span>
 
         <h3 className="text-[22px] font-extrabold text-[#26181c] mb-1">
@@ -57,9 +57,17 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
 
           <div className="h-px bg-[#fce2e7] my-0.5" />
 
-          <div className="flex justify-between items-center text-sm font-bold">
-            <span className="text-[#26181c]">Total Amount:</span>
-            <span className="text-[#8e004b] text-[16px]">₹{booking.totalAmount}</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[#5a3f47] font-medium">Total Booking Amount:</span>
+            <span className="font-bold text-[#26181c]">₹{booking.totalAmount}</span>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[#5a3f47] font-medium">Advance Paid — 25%:</span>
+            <span className="font-bold text-[#e6007e]">₹{Math.round(booking.totalAmount * 0.25)}</span>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[#5a3f47] font-medium">Remaining After Service — 75%:</span>
+            <span className="font-bold text-[#e6007e]">₹{Math.round(booking.totalAmount * 0.75)}</span>
           </div>
         </div>
 

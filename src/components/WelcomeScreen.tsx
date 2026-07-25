@@ -31,6 +31,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
       setEmailError('Enter a valid email address');
       return;
     }
+    if (authMode === 'login' && password !== 'password123') {
+      setEmailError('Email or password is incorrect.');
+      return;
+    }
     setEmailError(null);
     onContinue();
   };
@@ -90,8 +94,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
               <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4">
                 <span className="material-symbols-outlined text-[32px]">wifi_off</span>
               </div>
-              <h2 className="text-lg font-bold text-[#26181c] mb-1">You're offline</h2>
-              <p className="text-xs text-[#5a3f47] mb-6">Check your internet connection and try again.</p>
+              <h2 className="text-lg font-bold text-[#26181c] mb-1">We could not connect</h2>
+              <p className="text-xs text-[#5a3f47] mb-6">Check your internet and try again.</p>
               <button
                 onClick={() => setSimulatedState('normal')}
                 className="w-full h-12 bg-[#e6007e] text-white font-semibold text-xs rounded-xl shadow-md cursor-pointer"
@@ -274,7 +278,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="Enter password (e.g., password123)"
                   className="w-full h-[50px] bg-transparent pl-11 pr-12 rounded-2xl text-xs text-[#26181c] font-medium placeholder:text-[#8c7077]/60 focus:outline-none"
                 />
                 <button

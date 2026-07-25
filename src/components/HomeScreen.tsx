@@ -353,16 +353,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </section>
 
-      {/* Category Horizontal Scroll */}
-      <section className="-mx-5 px-5 overflow-x-auto hide-scrollbar">
-        <div className="flex gap-4 pb-1">
+      {/* Category Grid */}
+      <section className="-mx-2 px-2">
+        <div className="flex flex-wrap justify-center gap-y-4 gap-x-2 pb-1">
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className="flex flex-col items-center gap-2 min-w-[68px] group transition-transform active:scale-95"
+                className="flex flex-col items-center gap-2 min-w-[68px] group transition-transform active:scale-95 shrink-0"
               >
                 <div
                   className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-sm ${

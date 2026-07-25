@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Salon, Service, Staff, ServiceReview, WaitlistEntry } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
 import { WaitlistModal } from './WaitlistModal';
-import { AmbianceWidget } from './AmbianceWidget';
-import { SoundControlButton } from './SoundControlButton';
-import { ambianceSynthesizer } from '../utils/ambianceSynthesizer';
 
 interface SalonDetailScreenProps {
   salon: Salon;
@@ -91,8 +88,8 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
         serviceNames: [salon.services[0]?.name || 'Balayage & Styling'],
         dateStr: 'Wed 24 Jul',
         timeSlot: '09:00 AM',
-        clientName: 'Priya Sharma',
-        clientPhone: '+91 98765 43210',
+        clientName: localStorage.getItem('profile_name') || 'Priya Sharma',
+        clientPhone: localStorage.getItem('profile_phone') || '+91 98765 43210',
         notificationPreference: 'both',
         createdAt: Date.now() - 3600000,
         position: 1,
@@ -281,9 +278,6 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
             </button>
             <h1 className="text-[16px] sm:text-[18px] font-semibold text-[#26181c] truncate">{salon.name}</h1>
           </div>
-
-          {/* Sound Control Header Button with Long Press / Hover Volume Slider */}
-          <SoundControlButton variant="header" />
         </div>
       </div>
 
@@ -313,8 +307,6 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <SoundControlButton variant="overlay" />
-
               <button
                 onClick={onToggleFavorite}
                 className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-[#e6007e] shadow-md transition-transform active:scale-90"
@@ -362,9 +354,6 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
               <span className="text-[10px] font-medium text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount} reviews)</span>
             </div>
           </div>
-
-          {/* Ambiance Audio Soundscape Feature */}
-          <AmbianceWidget salon={salon} />
         </div>
 
         {/* Sticky Custom Segment Tabs */}
@@ -717,7 +706,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                             >
                               <div className="flex items-center gap-1">
                                 <span className="text-xs font-bold text-slate-400 line-through">{slot.time}</span>
-                                <span className="text-[9px] font-extrabold bg-slate-200 text-slate-700 px-1 rounded">Booked</span>
+                                <span className="text-[9px] font-extrabold bg-slate-200 text-slate-700 px-1 rounded">No slots available</span>
                               </div>
 
                               <button

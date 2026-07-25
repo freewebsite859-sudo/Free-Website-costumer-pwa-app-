@@ -16,7 +16,7 @@ export type Screen =
   | 'support'
   | 'settings';
 
-export type BookingStatus = 'CONFIRMED' | 'PENDING' | 'PAST' | 'COMPLETED' | 'CANCELLED';
+export type BookingStatus = 'CONFIRMED' | 'PENDING' | 'PAST' | 'COMPLETED' | 'CANCELLED' | 'payment_pending';
 
 export interface Service {
   id: string;

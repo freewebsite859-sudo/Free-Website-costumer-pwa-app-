@@ -108,7 +108,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     <div className="flex flex-col w-full pb-32 animate-in fade-in duration-200">
       {/* Toast popup */}
       {toast && (
-        <div className="fixed top-20 inset-x-4 z-50 bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-top duration-200">
+        <div className="fixed bottom-24 inset-x-4 z-[100] bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-bottom duration-200">
           <span className="material-symbols-outlined text-[#e6007e] text-lg">check_circle</span>
           <span>{toast}</span>
         </div>
@@ -116,7 +116,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-[#e8e8e8] shadow-xl flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-full bg-red-50 text-[#ba1a1a] flex items-center justify-center mx-auto">
               <span className="material-symbols-outlined text-[24px]">logout</span>
@@ -151,93 +151,87 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div className="text-caption text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">Notifications</div>
           <div className="bg-surface-container-lowest rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-[#e8e8e8] overflow-hidden">
             {/* Booking Updates */}
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_booking_updates', !bookingUpdates, setBookingUpdates, 'Booking Updates')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Booking Updates</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={bookingUpdates}
-                  onChange={(e) => handleToggle('settings_booking_updates', e.target.checked, setBookingUpdates, 'Booking Updates')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${bookingUpdates ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${bookingUpdates ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
             <div className="h-px bg-outline-subtle mx-4"></div>
 
             {/* Appointment Reminders */}
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_appt_reminders', !appointmentReminders, setAppointmentReminders, 'Appointment Reminders')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Appointment Reminders</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={appointmentReminders}
-                  onChange={(e) => handleToggle('settings_appt_reminders', e.target.checked, setAppointmentReminders, 'Appointment Reminders')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${appointmentReminders ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${appointmentReminders ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
             <div className="h-px bg-outline-subtle mx-4"></div>
 
             {/* Rewards Updates */}
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_rewards_updates', !rewardsUpdates, setRewardsUpdates, 'Rewards Updates')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Rewards Updates</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rewardsUpdates}
-                  onChange={(e) => handleToggle('settings_rewards_updates', e.target.checked, setRewardsUpdates, 'Rewards Updates')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${rewardsUpdates ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${rewardsUpdates ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
             <div className="h-px bg-outline-subtle mx-4"></div>
 
             {/* Offers and Promotions */}
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_offers_promo', !offersPromo, setOffersPromo, 'Offers and Promotions')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Offers and Promotions</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={offersPromo}
-                  onChange={(e) => handleToggle('settings_offers_promo', e.target.checked, setOffersPromo, 'Offers and Promotions')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${offersPromo ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${offersPromo ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
             <div className="h-px bg-outline-subtle mx-4"></div>
 
             {/* Email Notifications */}
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_email_notifs', !emailNotifs, setEmailNotifs, 'Email Notifications')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Email Notifications</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={emailNotifs}
-                  onChange={(e) => handleToggle('settings_email_notifs', e.target.checked, setEmailNotifs, 'Email Notifications')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${emailNotifs ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${emailNotifs ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
             <div className="h-px bg-outline-subtle mx-4"></div>
 
             {/* Push Notifications */}
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_push_notifs', !pushNotifs, setPushNotifs, 'Push Notifications')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Push Notifications</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={pushNotifs}
-                  onChange={(e) => handleToggle('settings_push_notifs', e.target.checked, setPushNotifs, 'Push Notifications')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${pushNotifs ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${pushNotifs ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
           </div>
         </div>
 
@@ -245,39 +239,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="px-page-margin-mobile pb-6">
           <div className="text-caption text-on-surface-variant uppercase tracking-wider mb-stack-sm ml-2">Location</div>
           <div className="bg-surface-container-lowest rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-[#e8e8e8] overflow-hidden">
-            <div className="w-full flex items-center justify-between p-4 bg-surface-container-lowest text-left">
-              <div>
-                <span className="block text-body text-on-surface font-medium">Preferred Location</span>
-                <span className="block text-caption text-on-surface-variant mt-0.5">{preferredLoc}</span>
-              </div>
-              <span className="material-symbols-outlined text-outline">chevron_right</span>
-            </div>
-            <div className="h-px bg-outline-subtle mx-4"></div>
-
             <button
               type="button"
-              onClick={() => {
-                onNavigate('location-modal');
-              }}
-              className="w-full flex items-center justify-between p-4 bg-surface-container-lowest active:bg-slate-50 transition-colors text-left cursor-pointer"
+              onClick={() => onNavigate('location-modal')}
+              className="w-full flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors text-left cursor-pointer"
             >
-              <span className="text-body text-on-surface font-medium">Change Location</span>
+              <div>
+                <span className="block text-body text-on-surface font-medium">Preferred Location</span>
+                <span className="block text-caption text-[#e6007e] font-bold mt-0.5">{preferredLoc}</span>
+              </div>
               <span className="material-symbols-outlined text-outline">chevron_right</span>
             </button>
             <div className="h-px bg-outline-subtle mx-4"></div>
 
-            <label className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer">
+            <div
+              onClick={() => handleToggle('settings_use_loc_auto', !useLocAuto, setUseLocAuto, 'Auto Location detection')}
+              className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
+            >
               <span className="text-body text-on-surface font-medium">Use Location Automatically</span>
-              <div className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useLocAuto}
-                  onChange={(e) => handleToggle('settings_use_loc_auto', e.target.checked, setUseLocAuto, 'Auto Location detection')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-outline-variant rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"></div>
+              <div className="relative inline-flex items-center">
+                <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${useLocAuto ? 'bg-[#e6007e]' : 'bg-[#e0bec6]'} shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]`}>
+                  <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all duration-200 ${useLocAuto ? 'translate-x-5 border-white' : 'translate-x-0'}`}></div>
+                </div>
               </div>
-            </label>
+            </div>
           </div>
         </div>
 

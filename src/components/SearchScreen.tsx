@@ -251,7 +251,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-[#3c2c31]/60 backdrop-blur-sm flex flex-col justify-end"
+            className="fixed inset-0 z-[100] bg-[#3c2c31]/60 backdrop-blur-sm flex flex-col justify-end"
           >
             <motion.div
               initial={{ y: '100%' }}

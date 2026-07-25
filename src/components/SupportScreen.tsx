@@ -287,7 +287,7 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
     <div className="flex flex-col w-full pb-32 animate-in fade-in duration-200">
       {/* Toast popup */}
       {toast && (
-        <div className="fixed top-20 inset-x-4 z-50 bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-top duration-200">
+        <div className="fixed bottom-24 inset-x-4 z-50 bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-bottom duration-200">
           <span className="material-symbols-outlined text-[#e6007e] text-lg">check_circle</span>
           <span>{toast}</span>
         </div>
@@ -683,7 +683,7 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-2xl pb-safe shadow-[0_-2px_16px_rgba(0,0,0,0.04)] border-t border-[#e8e8e8]/60">
         <div className="flex justify-around items-center h-16 px-1 max-w-md mx-auto">
           {[
-            { id: 'help-home', label: 'Support', icon: 'support_agent' },
+            { id: 'help-home', label: 'Contact Support', icon: 'support_agent' },
             { id: 'my-tickets', label: 'Tickets', icon: 'confirmation_number' },
             { id: 'create-ticket', label: 'New', icon: 'add_circle' },
             { id: 'profile-tab', label: 'Profile', icon: 'account_circle' },

@@ -20,8 +20,8 @@ export const WaitlistModal: React.FC<WaitlistModalProps> = ({
   selectedServicesSummary,
   onJoinSuccess,
 }) => {
-  const [clientName, setClientName] = useState('Priya Sharma');
-  const [clientPhone, setClientPhone] = useState('+91 98765 43210');
+  const [clientName, setClientName] = useState(() => localStorage.getItem('profile_name') || 'Priya Sharma');
+  const [clientPhone, setClientPhone] = useState(() => localStorage.getItem('profile_phone') || '+91 98765 43210');
   const [notifPref, setNotifPref] = useState<'sms' | 'push' | 'both'>('both');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [joinedEntry, setJoinedEntry] = useState<WaitlistEntry | null>(null);
@@ -55,7 +55,7 @@ export const WaitlistModal: React.FC<WaitlistModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
       <div className="bg-white w-full max-w-md rounded-t-[28px] sm:rounded-[28px] p-5 shadow-2xl border border-[#f0d8e2] overflow-hidden animate-in slide-in-from-bottom duration-300 relative">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#f3e1e8]">
@@ -65,7 +65,7 @@ export const WaitlistModal: React.FC<WaitlistModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="text-[16px] font-bold text-[#26181c]">Slot Fully Booked</h3>
+                <h3 className="text-[16px] font-bold text-[#26181c]">No slots available</h3>
                 <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                   Waitlist Open
                 </span>

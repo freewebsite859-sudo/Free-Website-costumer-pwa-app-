@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Booking, Screen, Salon, ServiceReview } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
+import { BookingDetailsModal } from './BookingDetailsModal';
 
 interface BookingsScreenProps {
   bookings: Booking[];
@@ -156,7 +157,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                   <span className="material-symbols-outlined text-[32px]">event_busy</span>
                 </div>
               </div>
-              <h3 className="text-[18px] text-[#26181c] font-bold mb-1">No Upcoming Bookings</h3>
+              <h3 className="text-[18px] text-[#26181c] font-bold mb-1">No bookings found.</h3>
               <p className="text-[14px] text-[#5a3f47] mb-6 max-w-[260px]">
                 Treat yourself to a relaxing spa session or a trendy hair makeover today!
               </p>
@@ -250,7 +251,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                   <span className="material-symbols-outlined text-[36px]">history</span>
                 </div>
               </div>
-              <h3 className="text-[18px] text-[#26181c] font-bold mb-1">No Past Bookings</h3>
+              <h3 className="text-[18px] text-[#26181c] font-bold mb-1">No bookings found.</h3>
               <p className="text-[14px] text-[#5a3f47] mb-6 max-w-[260px]">
                 Looks like you haven't completed any visits yet. Let's change that!
               </p>
@@ -295,70 +296,29 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           ) : (
             <div className="text-center py-12 bg-white rounded-2xl p-6 border border-[#e8e8e8]">
               <span className="material-symbols-outlined text-[40px] text-[#e0bec6] mb-2">block</span>
-              <p className="text-sm font-semibold text-[#26181c]">No Cancelled Bookings</p>
+              <p className="text-sm font-semibold text-[#26181c]">No bookings found.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Manage Booking Modal */}
+      {/* Booking Details Modal */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom">
-            <div className="flex items-center justify-between border-b border-[#fce2e7] pb-3">
-              <h3 className="text-[18px] font-bold text-[#26181c]">Manage Appointment</h3>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="p-1 rounded-full text-[#8c7077] hover:bg-[#ffe8ed]"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="p-3 bg-[#fff0f2] rounded-2xl border border-[#fde7f3]">
-              <p className="text-xs text-[#8c7077]">Booking ID: {selectedBooking.id}</p>
-              <h4 className="text-base font-bold text-[#26181c] mt-0.5">{selectedBooking.salonName}</h4>
-              <p className="text-xs text-[#5a3f47] font-medium mt-1">
-                {selectedBooking.dateStr} at {selectedBooking.timeSlot}
-              </p>
-              <p className="text-xs text-[#e6007e] font-semibold mt-1">
-                Total Paid: ₹{selectedBooking.totalAmount}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 pt-2">
-              <button
-                onClick={() => {
-                  alert(`Added appointment at ${selectedBooking.salonName} on ${selectedBooking.dateStr} to calendar!`);
-                }}
-                className="w-full h-11 bg-[#ffe8ed] text-[#26181c] rounded-xl font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#fce2e7]"
-              >
-                <span className="material-symbols-outlined text-[18px]">calendar_add_on</span>
-                Add to Calendar
-              </button>
-
-              <button
-                onClick={() => {
-                  if (confirm('Are you sure you want to cancel this booking?')) {
-                    onCancelBooking(selectedBooking.id);
-                    setSelectedBooking(null);
-                  }
-                }}
-                className="w-full h-11 bg-rose-50 text-rose-600 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 hover:bg-rose-100"
-              >
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-                Cancel Booking
-              </button>
-
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="w-full h-10 text-xs font-semibold text-[#8c7077]"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
+        <BookingDetailsModal
+          booking={selectedBooking}
+          isOpen={!!selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onCancel={(booking) => {
+            if (confirm('Are you sure you want to cancel this booking?')) {
+              onCancelBooking(booking.id);
+              setSelectedBooking(null);
+            }
+          }}
+          onRebook={() => {
+            setSelectedBooking(null);
+            onNavigate('home');
+          }}
+        />
       )}
 
       {/* Service Review Modal */}

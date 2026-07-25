@@ -248,7 +248,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
   // Current Logged-in User Profile in Leaderboard
   const currentUserMember: LeaderboardMember = {
     id: 'priya-current-user',
-    name: 'Priya Sharma (You)',
+    name: `${localStorage.getItem('profile_name') || 'Priya Sharma'} (You)`,
     pointsAllTime: calculatedPoints,
     pointsMonthly: Math.floor(calculatedPoints * 0.7),
     pointsWeekly: Math.floor(calculatedPoints * 0.4),
@@ -331,7 +331,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
     <div className="flex flex-col w-full gap-6 pb-28 pt-2 animate-in fade-in relative">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#26181c] text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 animate-in slide-in-from-top duration-300 max-w-[90vw]">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-[#26181c] text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 animate-in slide-in-from-top duration-300 max-w-[90vw]">
           <span className="material-symbols-outlined text-amber-400 text-[18px]">auto_awesome</span>
           <span>{toastMessage}</span>
         </div>
@@ -436,7 +436,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
             className="font-bold underline cursor-pointer hover:text-amber-200 transition-colors flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[14px]">card_giftcard</span>
-            Redeem Points
+            Use Rewards
           </button>
         </div>
       </div>
@@ -956,7 +956,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
 
       {/* SIMULATE REFERRAL SIGNUP MODAL */}
       {showSimulateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-[#f0d8e2]">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -1017,12 +1017,12 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
 
       {/* Redeem Points Modal */}
       {showRedeemModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-[#f0d8e2]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#e6007e] text-[24px]">stars</span>
-                <h3 className="text-[18px] font-bold text-[#26181c]">Redeem Glow Points</h3>
+                <h3 className="text-[18px] font-bold text-[#26181c]">Use Rewards</h3>
               </div>
               <button
                 onClick={() => setShowRedeemModal(false)}
