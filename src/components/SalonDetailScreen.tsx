@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Salon, Service, Staff, ServiceReview, WaitlistEntry } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
 import { WaitlistModal } from './WaitlistModal';
+import { AmbianceWidget } from './AmbianceWidget';
+import { SoundControlButton } from './SoundControlButton';
+import { ambianceSynthesizer } from '../utils/ambianceSynthesizer';
 
 interface SalonDetailScreenProps {
   salon: Salon;
@@ -39,6 +42,14 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   const [waitlistTargetSlot, setWaitlistTargetSlot] = useState<{ slot: string; dateStr: string } | null>(null);
   const [selectedSlotDateIdx, setSelectedSlotDateIdx] = useState<number>(0);
   const [waitlistAlertToast, setWaitlistAlertToast] = useState<string | null>(null);
+
+  // Service Category Filter & Accordion States
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
+  const toggleCategoryCollapse = (cat: string) => {
+    setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
 
   const slotDates = [
     { dayName: 'Wed', dateNum: '24', fullDate: 'Wed 24 Jul' },
@@ -206,7 +217,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
   // Group services by category
-  const categories = Array.from(new Set(salon.services.map((s) => s.category)));
+  const categories: string[] = Array.from(new Set(salon.services.map((s) => s.category)));
 
   // Filtered reviews list
   const filteredReviews = selectedServiceFilter === 'all'
@@ -259,19 +270,24 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
       {/* Top Header Back Bar */}
 
       <div className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe max-w-md mx-auto">
-        <div className="flex items-center h-16 px-4 gap-1">
-          <button
-            onClick={onBack}
-            className="w-10 h-10 flex items-center justify-center text-[#26181c] hover:text-[#e6007e] transition-colors"
-            aria-label="Back"
-          >
-            <span className="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
-          </button>
-          <h1 className="text-[18px] font-semibold text-[#26181c] truncate">Booking Detail</h1>
+        <div className="flex items-center justify-between h-16 px-4">
+          <div className="flex items-center gap-1 min-w-0">
+            <button
+              onClick={onBack}
+              className="w-10 h-10 flex items-center justify-center text-[#26181c] hover:text-[#e6007e] transition-colors shrink-0"
+              aria-label="Back"
+            >
+              <span className="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+            </button>
+            <h1 className="text-[16px] sm:text-[18px] font-semibold text-[#26181c] truncate">{salon.name}</h1>
+          </div>
+
+          {/* Sound Control Header Button with Long Press / Hover Volume Slider */}
+          <SoundControlButton variant="header" />
         </div>
       </div>
 
-      <div className="pt-16">
+      <div className="pt-20">
         {/* Hero Gallery */}
         <div className="relative w-full h-[280px] shrink-0 bg-[#e5e2e1] overflow-hidden">
           <img
@@ -281,8 +297,8 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-          {/* Gallery Indicators & Favorite Action */}
-          <div className="absolute bottom-4 left-0 right-0 flex justify-between items-center px-5">
+          {/* Gallery Indicators & Sound + Favorite Action */}
+          <div className="absolute bottom-4 left-0 right-0 flex justify-between items-center px-5 z-20">
             <div className="flex gap-1.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
               {salon.gallery.map((_, idx) => (
                 <button
@@ -296,19 +312,23 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
               ))}
             </div>
 
-            <button
-              onClick={onToggleFavorite}
-              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-[#e6007e] shadow-md transition-transform active:scale-90"
-              aria-label="Favorite"
-            >
-              <span
-                className={`material-symbols-outlined text-[22px] ${
-                  isFavorite ? 'fill-current' : ''
-                }`}
+            <div className="flex items-center gap-2">
+              <SoundControlButton variant="overlay" />
+
+              <button
+                onClick={onToggleFavorite}
+                className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-[#e6007e] shadow-md transition-transform active:scale-90"
+                aria-label="Favorite"
               >
-                favorite
-              </span>
-            </button>
+                <span
+                  className={`material-symbols-outlined text-[22px] ${
+                    isFavorite ? 'fill-current' : ''
+                  }`}
+                >
+                  favorite
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -342,6 +362,9 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
               <span className="text-[10px] font-medium text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount} reviews)</span>
             </div>
           </div>
+
+          {/* Ambiance Audio Soundscape Feature */}
+          <AmbianceWidget salon={salon} />
         </div>
 
         {/* Sticky Custom Segment Tabs */}
@@ -406,75 +429,160 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
           {/* Services Tab */}
           {activeTab === 'services' && (
             <div className="flex flex-col gap-6 animate-in fade-in">
-              {categories.map((cat) => {
-                const catServices = salon.services.filter((s) => s.category === cat);
-                return (
-                  <div key={cat} className="flex flex-col gap-3">
-                    <h3 className="text-[18px] font-bold text-[#26181c]">{cat}</h3>
-                    <div className="flex flex-col gap-3">
-                      {catServices.map((service) => {
-                        const isSelected = selectedServices.some((s) => s.id === service.id);
-                        const stats = getServiceStats(service.name);
-                        return (
-                          <div
-                            key={service.id}
-                            className={`flex flex-col p-4 bg-white rounded-2xl shadow-sm border transition-all ${
-                              isSelected ? 'border-[#e6007e] bg-[#fff0f2]' : 'border-slate-100 hover:border-[#fcd5e8]'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex flex-col gap-1 max-w-[65%]">
-                                <span className="text-[15px] font-semibold text-[#26181c]">
-                                  {service.name}
-                                </span>
-                                <span className="text-[12px] text-[#5a3f47] font-medium">
-                                  {service.durationMinutes} mins • {service.description || 'Custom treatment'}
-                                </span>
-                              </div>
+              {/* Category Filter Pills Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sticky top-[124px] bg-[#fff8f8]/95 backdrop-blur-xl z-30 py-2 -mx-5 px-5 border-b border-[#fce2e7]/50">
+                <button
+                  onClick={() => setSelectedCategoryFilter('all')}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    selectedCategoryFilter === 'all'
+                      ? 'bg-[#e6007e] text-white shadow-sm ring-2 ring-[#e6007e]/30'
+                      : 'bg-white text-[#5a3f47] border border-[#fcd5e8] hover:bg-[#fff0f3]'
+                  }`}
+                >
+                  <span>All Services</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedCategoryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-[#fde7f3] text-[#e6007e]'}`}>
+                    {salon.services.length}
+                  </span>
+                </button>
 
-                              <div className="flex flex-col items-end gap-1.5">
-                                <span className="text-[18px] font-bold text-[#e6007e]">
-                                  ₹{service.price}
-                                </span>
-                                <button
-                                  onClick={() => onToggleService(service)}
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-[#e6007e] text-white shadow-xs'
-                                      : 'bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white'
-                                  }`}
-                                  aria-label={isSelected ? 'Remove service' : 'Add service'}
-                                >
-                                  <span className="material-symbols-outlined text-[20px]">
-                                    {isSelected ? 'check' : 'add'}
-                                  </span>
-                                </button>
-                              </div>
-                            </div>
+                {categories.map((cat) => {
+                  const count = salon.services.filter((s) => s.category === cat).length;
+                  const isSel = selectedCategoryFilter === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategoryFilter(cat)}
+                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                        isSel
+                          ? 'bg-[#e6007e] text-white shadow-sm ring-2 ring-[#e6007e]/30'
+                          : 'bg-white text-[#5a3f47] border border-[#fcd5e8] hover:bg-[#fff0f3]'
+                      }`}
+                    >
+                      <span>{cat}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSel ? 'bg-white/20 text-white' : 'bg-[#fde7f3] text-[#e6007e]'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-                            {/* Service Rating & Review Action Bar */}
-                            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                              <div className="flex items-center gap-1.5 bg-[#fff0f3] px-2.5 py-1 rounded-lg border border-[#fcd5e8]">
-                                <span className="material-symbols-outlined text-[14px] text-amber-500">star</span>
-                                <span className="font-extrabold text-[#26181c]">{stats.rating}</span>
-                                <span className="text-[#8c7077] font-medium">({stats.count} reviews)</span>
-                              </div>
+              {/* Category Accordion Sections */}
+              <div className="flex flex-col gap-4">
+                {categories
+                  .filter((cat) => selectedCategoryFilter === 'all' || selectedCategoryFilter === cat)
+                  .map((cat) => {
+                    const catServices = salon.services.filter((s) => s.category === cat);
+                    const isCollapsed = collapsedCategories[cat] || false;
 
-                              <button
-                                onClick={() => openReviewForService(service.id)}
-                                className="text-[#e6007e] font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-[13px]">rate_review</span>
-                                Review Service
-                              </button>
+                    return (
+                      <div
+                        key={cat}
+                        className="bg-white rounded-2xl border border-[#fcd5e8]/60 shadow-xs overflow-hidden transition-all"
+                      >
+                        {/* Accordion Header */}
+                        <button
+                          onClick={() => toggleCategoryCollapse(cat)}
+                          className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-[#fff8f8] to-[#fff0f3] hover:from-[#fff0f3] hover:to-[#ffe8ed] transition-colors cursor-pointer text-left"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-8 h-8 rounded-full bg-[#fde7f3] text-[#e6007e] flex items-center justify-center font-bold text-sm shadow-2xs">
+                              {cat.charAt(0)}
+                            </span>
+                            <div>
+                              <h3 className="text-[16px] font-bold text-[#26181c]">{cat}</h3>
+                              <p className="text-[11px] text-[#5a3f47] font-medium">
+                                {catServices.length} {catServices.length === 1 ? 'service' : 'services'} available
+                              </p>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-[#e6007e] bg-white px-2.5 py-1 rounded-full border border-[#fcd5e8]">
+                              {isCollapsed ? 'Show Services' : 'Collapse'}
+                            </span>
+                            <span className="material-symbols-outlined text-[#5a3f47] text-[20px] transition-transform duration-300">
+                              {isCollapsed ? 'expand_more' : 'expand_less'}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Accordion Body / Services List */}
+                        {!isCollapsed && (
+                          <div className="p-4 pt-2 flex flex-col gap-3 border-t border-[#fce2e7]/40 bg-white">
+                            {catServices.map((service) => {
+                              const isSelected = selectedServices.some((s) => s.id === service.id);
+                              const stats = getServiceStats(service.name);
+                              return (
+                                <div
+                                  key={service.id}
+                                  className={`flex flex-col p-4 rounded-2xl border transition-all ${
+                                    isSelected
+                                      ? 'border-[#e6007e] bg-[#fff0f2] shadow-xs'
+                                      : 'border-slate-100 hover:border-[#fcd5e8] bg-slate-50/50'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex flex-col gap-1.5 max-w-[65%]">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[15px] font-semibold text-[#26181c]">
+                                          {service.name}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fde7f3] border border-[#fcd5e8] text-[#e6007e] text-[10px] font-bold shrink-0">
+                                          <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                          {service.durationMinutes} mins
+                                        </span>
+                                      </div>
+                                      <span className="text-[12px] text-[#5a3f47] font-medium">
+                                        {service.description || 'Custom treatment'}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-1.5">
+                                      <span className="text-[18px] font-bold text-[#e6007e]">
+                                        ₹{service.price}
+                                      </span>
+                                      <button
+                                        onClick={() => onToggleService(service)}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                                          isSelected
+                                            ? 'bg-[#e6007e] text-white shadow-xs'
+                                            : 'bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white'
+                                        }`}
+                                        aria-label={isSelected ? 'Remove service' : 'Add service'}
+                                      >
+                                        <span className="material-symbols-outlined text-[20px]">
+                                          {isSelected ? 'check' : 'add'}
+                                        </span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Service Rating & Review Action Bar */}
+                                  <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                                    <div className="flex items-center gap-1.5 bg-[#fff0f3] px-2.5 py-1 rounded-lg border border-[#fcd5e8]">
+                                      <span className="material-symbols-outlined text-[14px] text-amber-500">star</span>
+                                      <span className="font-extrabold text-[#26181c]">{stats.rating}</span>
+                                      <span className="text-[#8c7077] font-medium">({stats.count} reviews)</span>
+                                    </div>
+
+                                    <button
+                                      onClick={() => openReviewForService(service.id)}
+                                      className="text-[#e6007e] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <span className="material-symbols-outlined text-[13px]">rate_review</span>
+                                      Review Service
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
           )}
 

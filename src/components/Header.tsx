@@ -22,7 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNotifications,
 }) => {
   return (
-    <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe">
+    <header className="fixed top-0 w-full z-50 bg-white/85 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe">
       <div className="flex items-center justify-between h-16 px-5 max-w-md mx-auto">
         <div className="flex items-center gap-3">
           {showBack ? (
@@ -33,25 +33,37 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <span className="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
             </button>
-          ) : (
-            <button
-              onClick={() => onNavigate('home')}
-              className="flex items-center gap-2 group text-left"
-            >
+          ) : currentScreen === 'home' ? (
+            <div className="flex items-center gap-2.5">
               <img
                 src={LOGO_URL}
                 alt="Nexora Brand Logo"
-                className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-7 w-auto object-contain"
               />
-            </button>
+              <span className="font-semibold text-[18px] text-[#26181c] tracking-tight">
+                {title}
+              </span>
+            </div>
+          ) : (
+            <h1 className="font-semibold text-[18px] text-[#26181c] tracking-tight">
+              {title}
+            </h1>
           )}
-
-          <h1 className="font-semibold text-[18px] text-[#26181c] tracking-tight">
-            {title}
-          </h1>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Favourites Quick Icon */}
+          <button
+            onClick={() => onNavigate('favourites')}
+            className="w-9 h-9 rounded-full bg-[#fde7f3]/60 hover:bg-[#fde7f3] flex items-center justify-center text-[#e6007e] relative transition-transform active:scale-95 cursor-pointer"
+            aria-label="Favourites"
+            title="View Favourites"
+          >
+            <span className="material-symbols-outlined text-[20px] fill-current">
+              favorite
+            </span>
+          </button>
+
           {/* Notification Bell Icon */}
           <button
             onClick={onOpenNotifications}

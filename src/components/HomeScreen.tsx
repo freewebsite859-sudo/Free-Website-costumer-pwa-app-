@@ -26,8 +26,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [hasNotifications, setHasNotifications] = useState<boolean>(true);
-  const [notificationOpen, setNotificationOpen] = useState<boolean>(false);
   const [recommendationFilter, setRecommendationFilter] = useState<'all' | 'near' | 'category' | 'top'>('all');
   const [topTab, setTopTab] = useState<'frequent' | 'trending'>('frequent');
   // Scroll container ref for smooth horizontal carousel scrolling
@@ -305,63 +303,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   });
 
   return (
-    <div className="flex flex-col w-full gap-6 pb-28 pt-2">
-      {/* Header Location & Notification */}
-      <section className="flex flex-col gap-4">
+    <div className="flex flex-col w-full gap-5 pb-28 pt-2">
+      {/* Header Location & Search */}
+      <section className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[#5a3f47]">Current Location</span>
+            <span className="text-[12px] font-medium text-[#8c7077]">Current Location</span>
             <button
               onClick={onOpenLocationSelector}
               className="flex items-center gap-1.5 group text-left transition-colors"
             >
-              <span className="text-[18px] font-semibold text-[#26181c] group-hover:text-[#e6007e]">
+              <span className="text-[17px] font-semibold text-[#26181c] group-hover:text-[#e6007e]">
                 {location.area}
               </span>
-              <span className="material-symbols-outlined text-[20px] text-[#e6007e] transition-transform group-hover:translate-y-0.5">
+              <span className="material-symbols-outlined text-[18px] text-[#e6007e] transition-transform group-hover:translate-y-0.5">
                 expand_more
               </span>
             </button>
           </div>
-
-          <div className="relative">
-            <button
-              aria-label="Notifications"
-              onClick={() => {
-                setNotificationOpen(!notificationOpen);
-                setHasNotifications(false);
-              }}
-              className="relative p-2.5 rounded-full bg-[#fce2e7] text-[#26181c] hover:bg-[#f6dce2] active:scale-95 transition-all shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[22px]">notifications</span>
-              {hasNotifications && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-[#e6007e] ring-2 ring-[#fce2e7] animate-pulse" />
-              )}
-            </button>
-
-            {notificationOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-[#e8e8e8] p-4 z-50 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-sm text-[#26181c]">Notifications</span>
-                  <span className="text-[11px] text-[#e6007e] font-medium">Clear all</span>
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-[#fff0f2] border border-[#fde7f3]">
-                    <p className="font-semibold text-[#8e004b]">Appointment Confirmed 🎉</p>
-                    <p className="text-[#5a3f47] mt-0.5">Aura Premium Salon on Sat, 28 Jul at 11:00 AM</p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-[#fcf9f8] border border-[#e8e8e8]">
-                    <p className="font-semibold text-[#26181c]">Flat 30% Off Facials Today</p>
-                    <p className="text-[#5a3f47] mt-0.5">Valid on all HydraGlow and Radiance peels.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Search Bar */}
-        <div className="relative w-full shadow-sm rounded-2xl overflow-hidden">
+        <div className="relative w-full shadow-xs rounded-2xl overflow-hidden">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
             <span className="material-symbols-outlined text-[#8c7077]">search</span>
           </div>

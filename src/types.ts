@@ -6,13 +6,17 @@ export type Screen =
   | 'salon-detail' 
   | 'checkout' 
   | 'bookings' 
+  | 'favourites'
   | 'location-modal' 
   | 'location-permission'
   | 'popular-cities'
   | 'rewards' 
-  | 'profile';
+  | 'profile'
+  | 'saved-addresses'
+  | 'support'
+  | 'settings';
 
-export type BookingStatus = 'CONFIRMED' | 'PENDING' | 'PAST' | 'CANCELLED';
+export type BookingStatus = 'CONFIRMED' | 'PENDING' | 'PAST' | 'COMPLETED' | 'CANCELLED';
 
 export interface Service {
   id: string;
@@ -67,6 +71,7 @@ export interface Booking {
   staffName?: string;
   locationArea: string;
   createdTime: number;
+  isReviewed?: boolean;
 }
 
 export interface UserLocation {
@@ -74,6 +79,17 @@ export interface UserLocation {
   area: string;
   address?: string;
   isGPS: boolean;
+}
+
+export interface Address {
+  id: string;
+  label: string;
+  flatNumber: string;
+  street: string;
+  landmark?: string;
+  city: string;
+  pincode: string;
+  isDefault: boolean;
 }
 
 export interface LoyaltyTier {
@@ -128,5 +144,26 @@ export interface WaitlistEntry {
   createdAt: number;
   position: number;
   status: 'ACTIVE' | 'NOTIFIED' | 'EXPIRED' | 'CANCELLED';
+}
+
+export interface SavedProfessional {
+  id: string;
+  salonId: string;
+  name: string;
+  role: string;
+  rating: number;
+  avatar: string;
+  salonName: string;
+  skills: string[];
+}
+
+export interface SavedService {
+  id: string;
+  salonId: string;
+  name: string;
+  durationMinutes: number;
+  price: number;
+  salonName: string;
+  category: string;
 }
 

@@ -1,27 +1,41 @@
 import React, { useState } from 'react';
-import { Booking, Screen } from '../types';
+import { Booking, Screen, Salon, ServiceReview } from '../types';
+import { ServiceReviewModal } from './ServiceReviewModal';
 
 interface BookingsScreenProps {
   bookings: Booking[];
+  salons: Salon[];
   onNavigate: (screen: Screen) => void;
   onCancelBooking: (bookingId: string) => void;
   onTriggerTestNotification?: (bookingId: string) => void;
+  onAddReview: (salonId: string, newReview: Omit<ServiceReview, 'id' | 'date'>) => void;
+  onMarkBookingReviewed: (bookingId: string) => void;
 }
 
 export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   bookings,
+  salons,
   onNavigate,
   onCancelBooking,
   onTriggerTestNotification,
+  onAddReview,
+  onMarkBookingReviewed,
 }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [reviewModalBooking, setReviewModalBooking] = useState<Booking | null>(null);
 
   const upcomingBookings = bookings.filter(
     (b) => b.status === 'CONFIRMED' || b.status === 'PENDING'
   );
-  const pastBookings = bookings.filter((b) => b.status === 'PAST');
+  const pastBookings = bookings.filter(
+    (b) => b.status === 'PAST' || b.status === 'COMPLETED'
+  );
   const cancelledBookings = bookings.filter((b) => b.status === 'CANCELLED');
+
+  const targetSalonForReview = reviewModalBooking
+    ? salons.find((s) => s.id === reviewModalBooking.salonId) || salons[0]
+    : salons[0];
 
   return (
     <div className="flex flex-col w-full gap-5 pb-28 pt-2">
@@ -159,23 +173,95 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
 
       {/* Past Tab */}
       {activeTab === 'past' && (
-        <div className="flex flex-col items-center justify-center py-12 px-4 text-center w-full bg-white rounded-3xl p-6 border border-[#e8e8e8] animate-in fade-in">
-          <div className="w-24 h-24 mb-4 relative flex items-center justify-center">
-            <div className="absolute inset-0 bg-[#e6007e]/5 rounded-full blur-xl" />
-            <div className="relative w-16 h-16 bg-[#ffe8ed] rounded-full flex items-center justify-center text-[#8c7077]">
-              <span className="material-symbols-outlined text-[36px]">history</span>
+        <div className="flex flex-col gap-4 w-full animate-in fade-in">
+          {pastBookings.length > 0 ? (
+            pastBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="bg-white rounded-[24px] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] relative overflow-hidden group border border-[#e8e8e8]"
+              >
+                <div className="flex justify-between items-start mb-3 relative z-10">
+                  <div>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase mb-2 bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Completed
+                    </span>
+                    <h3 className="text-[18px] text-[#26181c] font-bold mb-0.5">
+                      {booking.salonName}
+                    </h3>
+                    <p className="text-[14px] text-[#5a3f47] font-medium">
+                      {booking.services.map((s) => s.name).join(', ')}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                  </div>
+                </div>
+
+                {/* Date & Time Row */}
+                <div className="flex items-center gap-4 py-3 mb-4 border-t border-[#e8e8e8]/60 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5a3f47] text-[20px]">
+                      calendar_month
+                    </span>
+                    <span className="text-[13px] text-[#26181c] font-semibold">
+                      {booking.dateStr}
+                    </span>
+                  </div>
+                  <div className="w-1 h-1 rounded-full bg-[#8c7077]" />
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5a3f47] text-[20px]">
+                      schedule
+                    </span>
+                    <span className="text-[13px] text-[#26181c] font-semibold">
+                      {booking.timeSlot}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  {booking.isReviewed ? (
+                    <div className="flex-1 h-[44px] bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[12px] font-bold flex items-center justify-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-amber-500 fill-current">star</span>
+                      Review Submitted ⭐
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setReviewModalBooking(booking)}
+                      className="flex-1 h-[44px] bg-[#e6007e] text-white text-[12px] font-bold rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 shadow-sm shadow-[#e6007e]/20 hover:bg-[#b90064]"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                      Leave a Review
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onNavigate('home')}
+                    className="h-[44px] px-4 bg-[#ffe8ed] text-[#e6007e] text-[12px] font-bold rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-1"
+                  >
+                    Rebook
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center w-full bg-white rounded-3xl p-6 border border-[#e8e8e8]">
+              <div className="w-24 h-24 mb-4 relative flex items-center justify-center">
+                <div className="absolute inset-0 bg-[#e6007e]/5 rounded-full blur-xl" />
+                <div className="relative w-16 h-16 bg-[#ffe8ed] rounded-full flex items-center justify-center text-[#8c7077]">
+                  <span className="material-symbols-outlined text-[36px]">history</span>
+                </div>
+              </div>
+              <h3 className="text-[18px] text-[#26181c] font-bold mb-1">No Past Bookings</h3>
+              <p className="text-[14px] text-[#5a3f47] mb-6 max-w-[260px]">
+                Looks like you haven't completed any visits yet. Let's change that!
+              </p>
+              <button
+                onClick={() => onNavigate('home')}
+                className="w-full h-[52px] bg-[#e6007e] text-white text-[14px] font-semibold rounded-xl active:scale-95 transition-transform shadow-md shadow-[#e6007e]/30"
+              >
+                Book your first service
+              </button>
             </div>
-          </div>
-          <h3 className="text-[18px] text-[#26181c] font-bold mb-1">No Past Bookings</h3>
-          <p className="text-[14px] text-[#5a3f47] mb-6 max-w-[260px]">
-            Looks like you haven't visited us yet. Let's change that!
-          </p>
-          <button
-            onClick={() => onNavigate('home')}
-            className="w-full h-[52px] bg-[#e6007e] text-white text-[14px] font-semibold rounded-xl active:scale-95 transition-transform shadow-md shadow-[#e6007e]/30"
-          >
-            Book your first service
-          </button>
+          )}
         </div>
       )}
 
@@ -273,6 +359,20 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Service Review Modal */}
+      {reviewModalBooking && targetSalonForReview && (
+        <ServiceReviewModal
+          isOpen={!!reviewModalBooking}
+          onClose={() => setReviewModalBooking(null)}
+          salon={targetSalonForReview}
+          preselectedServiceId={reviewModalBooking.services[0]?.id}
+          onSubmitReview={(newReview) => {
+            onAddReview(reviewModalBooking.salonId, newReview);
+            onMarkBookingReviewed(reviewModalBooking.id);
+          }}
+        />
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification } from './types';
+import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
   MOCK_SALONS,
   INITIAL_BOOKINGS,
@@ -13,10 +13,14 @@ import { SalonDetailScreen } from './components/SalonDetailScreen';
 import { CheckoutScreen } from './components/CheckoutScreen';
 import { BookingsScreen } from './components/BookingsScreen';
 import { SearchScreen } from './components/SearchScreen';
+import { FavoritesScreen } from './components/FavoritesScreen';
 import { LocationSelectionModal } from './components/LocationSelectionModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RewardsScreen } from './components/RewardsScreen';
 import { ProfileScreen } from './components/ProfileScreen';
+import { SavedAddressesScreen } from './components/SavedAddressesScreen';
+import { SupportScreen } from './components/SupportScreen';
+import { SettingsScreen } from './components/SettingsScreen';
 import { BookingConfirmationModal } from './components/BookingConfirmationModal';
 import { NotificationOverlay } from './components/NotificationOverlay';
 import { NotificationDrawer } from './components/NotificationDrawer';
@@ -40,6 +44,56 @@ export default function App() {
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('nexora_favorites');
     return saved ? JSON.parse(saved) : ['aura-premium', 'glam-room'];
+  });
+
+  const [favoriteProfessionals, setFavoriteProfessionals] = useState<SavedProfessional[]>(() => {
+    const saved = localStorage.getItem('nexora_favorite_pros');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'pro-1',
+        salonId: 'aura-premium',
+        name: 'Maya S.',
+        role: 'Senior Hair Stylist',
+        rating: 4.9,
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        salonName: 'Aura Premium Salon',
+        skills: ['Haircut', 'Balayage', 'Coloring']
+      },
+      {
+        id: 'pro-2',
+        salonId: 'glam-room',
+        name: 'Arjun K.',
+        role: 'Master Grooming Expert',
+        rating: 4.8,
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        salonName: 'The Glam Room',
+        skills: ['Beard Styling', 'Fade Haircut']
+      }
+    ];
+  });
+
+  const [favoriteServices, setFavoriteServices] = useState<SavedService[]>(() => {
+    const saved = localStorage.getItem('nexora_favorite_services');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'srv-1',
+        salonId: 'aura-premium',
+        name: "Woman's Haircut & Blowdry",
+        durationMinutes: 45,
+        price: 899,
+        salonName: 'Aura Premium Salon',
+        category: 'Hair Styling'
+      },
+      {
+        id: 'srv-2',
+        salonId: 'luxe-spa',
+        name: 'Deep Cleansing Facial Glow',
+        durationMinutes: 60,
+        price: 1499,
+        salonName: 'Luxe Botanicals & Spa',
+        category: 'Skincare'
+      }
+    ];
   });
 
   const [bookings, setBookings] = useState<Booking[]>(() => {
@@ -76,6 +130,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('nexora_favorites', JSON.stringify(favorites));
   }, [favorites]);
+
+  useEffect(() => {
+    localStorage.setItem('nexora_favorite_pros', JSON.stringify(favoriteProfessionals));
+  }, [favoriteProfessionals]);
+
+  useEffect(() => {
+    localStorage.setItem('nexora_favorite_services', JSON.stringify(favoriteServices));
+  }, [favoriteServices]);
 
   useEffect(() => {
     localStorage.setItem('nexora_bookings', JSON.stringify(bookings));
@@ -188,6 +250,32 @@ export default function App() {
     );
   };
 
+  const handleMarkBookingReviewed = (bookingId: string) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, isReviewed: true } : b))
+    );
+  };
+
+  const handleAddReviewFromBooking = (salonId: string, newRev: Omit<ServiceReview, 'id' | 'date'>) => {
+    const storageKey = `nexora_service_reviews_${salonId}`;
+    const saved = localStorage.getItem(storageKey);
+    let currentReviews: ServiceReview[] = [];
+    if (saved) {
+      try {
+        currentReviews = JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const created: ServiceReview = {
+      ...newRev,
+      id: `sr-${Date.now()}`,
+      date: 'Just now',
+    };
+    const updatedReviews = [created, ...currentReviews];
+    localStorage.setItem(storageKey, JSON.stringify(updatedReviews));
+  };
+
   const handleSnoozeNotification = (id: string) => {
     setActivePushOverlay(null);
     // Re-trigger overlay after 10 seconds for testing/preview
@@ -215,16 +303,31 @@ export default function App() {
         return 'Checkout';
       case 'bookings':
         return 'My Bookings';
+      case 'favourites':
+        return 'Favourites';
       case 'rewards':
         return 'Rewards & Loyalty';
       case 'profile':
         return 'My Profile';
+      case 'saved-addresses':
+        return 'Saved Addresses';
+      case 'support':
+        return 'Help Home';
+      case 'settings':
+        return 'App Settings';
       default:
         return 'Nexora';
     }
   };
 
-  const showHeaderBack = currentScreen === 'search' || currentScreen === 'salon-detail' || currentScreen === 'checkout';
+  const showHeaderBack =
+    currentScreen === 'search' ||
+    currentScreen === 'salon-detail' ||
+    currentScreen === 'checkout' ||
+    currentScreen === 'favourites' ||
+    currentScreen === 'saved-addresses' ||
+    currentScreen === 'support' ||
+    currentScreen === 'settings';
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -251,34 +354,37 @@ export default function App() {
         onNavigate={(screen) => setCurrentScreen(screen)}
       />
 
-      <div className="w-full max-w-md mx-auto flex-1 flex flex-col relative min-h-screen">
-        {/* Render Header for main views */}
-        {currentScreen !== 'welcome' &&
-          currentScreen !== 'splash' &&
-          currentScreen !== 'location-modal' && (
-            <Header
-              currentScreen={currentScreen}
-              title={getHeaderTitle()}
-              onNavigate={(screen) => setCurrentScreen(screen)}
-              showBack={showHeaderBack}
-              onBack={() => {
-                if (currentScreen === 'checkout') setCurrentScreen('salon-detail');
-                else if (currentScreen === 'salon-detail') setCurrentScreen('home');
-                else if (currentScreen === 'search') setCurrentScreen('home');
-                else setCurrentScreen('home');
-              }}
-              unreadNotificationCount={unreadCount}
-              onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
-            />
-          )}
+      {/* Render Header for main views (outside max-w-md container for full viewport width) */}
+      {currentScreen !== 'welcome' &&
+        currentScreen !== 'splash' &&
+        currentScreen !== 'location-modal' && (
+          <Header
+            currentScreen={currentScreen}
+            title={getHeaderTitle()}
+            onNavigate={(screen) => setCurrentScreen(screen)}
+            showBack={showHeaderBack}
+            onBack={() => {
+              if (currentScreen === 'checkout') setCurrentScreen('salon-detail');
+              else if (currentScreen === 'salon-detail') setCurrentScreen('home');
+              else if (currentScreen === 'search') setCurrentScreen('home');
+              else if (currentScreen === 'saved-addresses') setCurrentScreen('profile');
+              else if (currentScreen === 'support') setCurrentScreen('profile');
+              else if (currentScreen === 'settings') setCurrentScreen('profile');
+              else setCurrentScreen('home');
+            }}
+            unreadNotificationCount={unreadCount}
+            onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
+          />
+        )}
 
+      <div className="w-full max-w-md mx-auto flex-1 flex flex-col relative">
         {/* Content Body Container */}
         <main
           className={`flex-1 w-full px-5 ${
             currentScreen !== 'welcome' &&
             currentScreen !== 'splash' &&
             currentScreen !== 'location-modal'
-              ? 'pt-16'
+              ? 'pt-20'
               : ''
           }`}
         >
@@ -336,9 +442,30 @@ export default function App() {
           {currentScreen === 'bookings' && (
             <BookingsScreen
               bookings={bookings}
+              salons={salons}
               onNavigate={(s) => setCurrentScreen(s)}
               onCancelBooking={handleCancelBooking}
               onTriggerTestNotification={triggerPushNotificationForBooking}
+              onAddReview={handleAddReviewFromBooking}
+              onMarkBookingReviewed={handleMarkBookingReviewed}
+            />
+          )}
+
+          {currentScreen === 'favourites' && (
+            <FavoritesScreen
+              salons={salons}
+              favorites={favorites}
+              favoriteProfessionals={favoriteProfessionals}
+              favoriteServices={favoriteServices}
+              onToggleFavoriteSalon={handleToggleFavorite}
+              onToggleFavoriteProfessional={(proId) => {
+                setFavoriteProfessionals((prev) => prev.filter((p) => p.id !== proId));
+              }}
+              onToggleFavoriteService={(servId) => {
+                setFavoriteServices((prev) => prev.filter((s) => s.id !== servId));
+              }}
+              onSelectSalon={handleSelectSalon}
+              onNavigate={(s) => setCurrentScreen(s)}
             />
           )}
 
@@ -348,8 +475,31 @@ export default function App() {
             <ProfileScreen
               location={userLocation}
               favoritesCount={favorites.length}
+              bookings={bookings}
               onNavigate={(s) => setCurrentScreen(s)}
               onOpenLocation={() => setCurrentScreen('location-modal')}
+            />
+          )}
+
+          {currentScreen === 'saved-addresses' && (
+            <SavedAddressesScreen
+              onBack={() => setCurrentScreen('profile')}
+              onNavigate={(s) => setCurrentScreen(s)}
+            />
+          )}
+
+          {currentScreen === 'support' && (
+            <SupportScreen
+              onBack={() => setCurrentScreen('profile')}
+              onNavigate={(s) => setCurrentScreen(s)}
+            />
+          )}
+
+          {currentScreen === 'settings' && (
+            <SettingsScreen
+              onBack={() => setCurrentScreen('profile')}
+              onNavigate={(s) => setCurrentScreen(s)}
+              onLogout={() => setCurrentScreen('welcome')}
             />
           )}
 

@@ -187,6 +187,22 @@ export const MOCK_SALONS: Salon[] = [
 
 export const INITIAL_BOOKINGS: Booking[] = [
   {
+    id: 'bk-99',
+    salonId: 'aura-premium',
+    salonName: 'Aura Premium Salon',
+    services: [
+      { id: 'a1', name: "Woman's Haircut & Blowdry", durationMinutes: 45, price: 899, category: 'Hair Styling' },
+    ],
+    totalAmount: 899,
+    dateStr: 'Sun, 21 Jul',
+    timeSlot: '03:00 PM',
+    status: 'COMPLETED',
+    staffName: 'Maya S.',
+    locationArea: 'Indiranagar, Bangalore',
+    createdTime: Date.now() - 345600000,
+    isReviewed: false,
+  },
+  {
     id: 'bk-101',
     salonId: 'aura-premium',
     salonName: 'Aura Premium Salon',
