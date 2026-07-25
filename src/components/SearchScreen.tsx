@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Salon } from '../types';
 
 interface SearchScreenProps {
@@ -226,113 +227,165 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
       </div>
 
       {/* Floating Map View Button */}
-      <button
+      <motion.button
+        initial={{ opacity: 0, y: 20, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         onClick={() => {
           setShowMapView(true);
           setActiveSalonOnMap(filteredSalons[0] || salons[0]);
         }}
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 h-12 px-6 bg-[#3c2c31] text-white rounded-full shadow-2xl flex items-center gap-2 text-[14px] font-bold hover:scale-105 active:scale-95 transition-all z-40"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 h-12 px-6 bg-[#3c2c31] text-white rounded-full shadow-2xl flex items-center gap-2 text-[14px] font-bold z-40 cursor-pointer select-none"
       >
         <span className="material-symbols-outlined text-[20px]">map</span>
         Map View
-      </button>
+      </motion.button>
 
       {/* Map View Interactive Overlay */}
-      {showMapView && (
-        <div className="fixed inset-0 z-50 bg-[#3c2c31]/60 backdrop-blur-sm flex flex-col justify-end animate-in fade-in">
-          <div className="relative w-full h-full bg-[#f6f3f2] flex flex-col">
-            {/* Top Map Bar */}
-            <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
-              <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-md flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#e6007e]">location_on</span>
-                <span className="text-xs font-bold text-[#26181c]">Bandra West, Mumbai</span>
+      <AnimatePresence>
+        {showMapView && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-[#3c2c31]/60 backdrop-blur-sm flex flex-col justify-end"
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              className="relative w-full h-full bg-[#f6f3f2] flex flex-col"
+            >
+              {/* Top Map Bar */}
+              <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-md flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[#e6007e]">location_on</span>
+                  <span className="text-xs font-bold text-[#26181c]">Bandra West, Mumbai</span>
+                </motion.div>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ delay: 0.15 }}
+                  onClick={() => setShowMapView(false)}
+                  className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-[#26181c] font-bold cursor-pointer"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </motion.button>
               </div>
-              <button
-                onClick={() => setShowMapView(false)}
-                className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-[#26181c] font-bold"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
 
-            {/* Stylized Map View Graphic */}
-            <div className="relative flex-1 bg-[#eae6e5] overflow-hidden flex items-center justify-center">
-              {/* Map Grid Pattern */}
-              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#8e004b_1px,transparent_1px)] [background-size:16px_16px]" />
-              
-              {/* Animated Map Pins for Salons */}
-              {salons.map((s, idx) => {
-                const isSelected = activeSalonOnMap?.id === s.id;
-                // Pin offset coordinates for visual positioning
-                const topOffsets = ['30%', '50%', '40%', '65%'];
-                const leftOffsets = ['25%', '60%', '75%', '35%'];
+              {/* Stylized Map View Graphic */}
+              <div className="relative flex-1 bg-[#eae6e5] overflow-hidden flex items-center justify-center">
+                {/* Map Grid Pattern */}
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#8e004b_1px,transparent_1px)] [background-size:16px_16px]" />
+                
+                {/* Animated Map Pins for Salons */}
+                {salons.map((s, idx) => {
+                  const isSelected = activeSalonOnMap?.id === s.id;
+                  // Pin offset coordinates for visual positioning
+                  const topOffsets = ['30%', '50%', '40%', '65%'];
+                  const leftOffsets = ['25%', '60%', '75%', '35%'];
 
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setActiveSalonOnMap(s)}
-                    style={{ top: topOffsets[idx % 4], left: leftOffsets[idx % 4] }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group transition-all z-10 ${
-                      isSelected ? 'scale-125 z-30' : 'hover:scale-110'
-                    }`}
-                  >
-                    <div
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1 ${
-                        isSelected
-                          ? 'bg-[#e6007e] text-white ring-4 ring-[#e6007e]/30'
-                          : 'bg-white text-[#26181c]'
+                  return (
+                    <motion.button
+                      key={s.id}
+                      initial={{ opacity: 0, scale: 0, y: -15 }}
+                      animate={{
+                        opacity: 1,
+                        scale: isSelected ? 1.25 : 1,
+                        y: 0,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 380,
+                        damping: 24,
+                        delay: 0.1 + idx * 0.06,
+                      }}
+                      whileHover={{ scale: isSelected ? 1.3 : 1.12 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setActiveSalonOnMap(s)}
+                      style={{ top: topOffsets[idx % 4], left: leftOffsets[idx % 4] }}
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer select-none ${
+                        isSelected ? 'z-30' : 'z-10'
                       }`}
                     >
-                      <span>₹{s.startingPrice}</span>
-                      <span className="text-[10px]">★{s.rating}</span>
-                    </div>
-                    <div
-                      className={`w-3 h-3 rotate-45 -mt-1.5 ${
-                        isSelected ? 'bg-[#e6007e]' : 'bg-white'
-                      }`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Bottom Salon Preview Card */}
-            {activeSalonOnMap && (
-              <div className="p-4 bg-white rounded-t-3xl shadow-2xl z-20 animate-in slide-in-from-bottom">
-                <div className="flex gap-4 items-center">
-                  <img
-                    src={activeSalonOnMap.image}
-                    alt={activeSalonOnMap.name}
-                    className="w-20 h-20 rounded-2xl object-cover shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-bold text-[#e6007e] uppercase tracking-wider">
-                      {activeSalonOnMap.distanceKm} km away
-                    </span>
-                    <h4 className="text-base font-bold text-[#26181c] truncate">
-                      {activeSalonOnMap.name}
-                    </h4>
-                    <p className="text-xs text-[#5a3f47] truncate">{activeSalonOnMap.address}</p>
-                    <p className="text-xs font-bold text-[#8e004b] mt-1">
-                      From ₹{activeSalonOnMap.startingPrice}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setShowMapView(false);
-                    onSelectSalon(activeSalonOnMap);
-                  }}
-                  className="w-full mt-3 h-11 bg-[#e6007e] text-white rounded-xl font-bold text-xs shadow-md"
-                >
-                  Book Appointment
-                </button>
+                      <div
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1 transition-colors ${
+                          isSelected
+                            ? 'bg-[#e6007e] text-white ring-4 ring-[#e6007e]/30'
+                            : 'bg-white text-[#26181c]'
+                        }`}
+                      >
+                        <span>₹{s.startingPrice}</span>
+                        <span className="text-[10px]">★{s.rating}</span>
+                      </div>
+                      <div
+                        className={`w-3 h-3 rotate-45 -mt-1.5 transition-colors ${
+                          isSelected ? 'bg-[#e6007e]' : 'bg-white'
+                        }`}
+                      />
+                    </motion.button>
+                  );
+                })}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+
+              {/* Bottom Salon Preview Card */}
+              <AnimatePresence mode="wait">
+                {activeSalonOnMap && (
+                  <motion.div
+                    key={activeSalonOnMap.id}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                    className="p-4 bg-white rounded-t-3xl shadow-2xl z-20"
+                  >
+                    <div className="flex gap-4 items-center">
+                      <img
+                        src={activeSalonOnMap.image}
+                        alt={activeSalonOnMap.name}
+                        className="w-20 h-20 rounded-2xl object-cover shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-bold text-[#e6007e] uppercase tracking-wider">
+                          {activeSalonOnMap.distanceKm} km away
+                        </span>
+                        <h4 className="text-base font-bold text-[#26181c] truncate">
+                          {activeSalonOnMap.name}
+                        </h4>
+                        <p className="text-xs text-[#5a3f47] truncate">{activeSalonOnMap.address}</p>
+                        <p className="text-xs font-bold text-[#8e004b] mt-1">
+                          From ₹{activeSalonOnMap.startingPrice}
+                        </p>
+                      </div>
+                    </div>
+
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => {
+                        setShowMapView(false);
+                        onSelectSalon(activeSalonOnMap);
+                      }}
+                      className="w-full mt-3 h-11 bg-[#e6007e] text-white rounded-xl font-bold text-xs shadow-md cursor-pointer"
+                    >
+                      Book Appointment
+                    </motion.button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
