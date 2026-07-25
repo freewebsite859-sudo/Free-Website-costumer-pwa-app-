@@ -8,6 +8,8 @@ interface HeaderProps {
   onNavigate: (screen: Screen) => void;
   onBack?: () => void;
   showBack?: boolean;
+  unreadNotificationCount?: number;
+  onOpenNotifications?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onBack,
   showBack = false,
+  unreadNotificationCount = 0,
+  onOpenNotifications,
 }) => {
   return (
     <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe">
@@ -47,18 +51,38 @@ export const Header: React.FC<HeaderProps> = ({
           </h1>
         </div>
 
-        <button
-          onClick={() => onNavigate('profile')}
-          className="relative focus:outline-none ring-2 ring-transparent focus:ring-[#e6007e] rounded-full transition-transform active:scale-95"
-          aria-label="Profile Settings"
-        >
-          <img
-            src={AVATAR_URL}
-            alt="User Profile Avatar"
-            className="w-8 h-8 rounded-full object-cover border border-[#e0bec6]"
-          />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Notification Bell Icon */}
+          <button
+            onClick={onOpenNotifications}
+            className="w-9 h-9 rounded-full bg-[#fde7f3]/60 hover:bg-[#fde7f3] flex items-center justify-center text-[#26181c] relative transition-transform active:scale-95 cursor-pointer"
+            aria-label="Appointment Notifications"
+          >
+            <span className="material-symbols-outlined text-[20px] text-[#26181c]">
+              notifications
+            </span>
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#e6007e] text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 border-2 border-white animate-pulse">
+                {unreadNotificationCount}
+              </span>
+            )}
+          </button>
+
+          {/* Profile Avatar */}
+          <button
+            onClick={() => onNavigate('profile')}
+            className="relative focus:outline-none ring-2 ring-transparent focus:ring-[#e6007e] rounded-full transition-transform active:scale-95"
+            aria-label="Profile Settings"
+          >
+            <img
+              src={AVATAR_URL}
+              alt="User Profile Avatar"
+              className="w-8 h-8 rounded-full object-cover border border-[#e0bec6]"
+            />
+          </button>
+        </div>
       </div>
     </header>
   );
 };
+

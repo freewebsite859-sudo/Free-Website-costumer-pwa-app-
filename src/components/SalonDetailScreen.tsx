@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Salon, Service, Staff } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Salon, Service, Staff, ServiceReview, WaitlistEntry } from '../types';
+import { ServiceReviewModal } from './ServiceReviewModal';
+import { WaitlistModal } from './WaitlistModal';
 
 interface SalonDetailScreenProps {
   salon: Salon;
@@ -24,44 +26,238 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   isFavorite,
   onToggleFavorite,
 }) => {
-  const [activeTab, setActiveTab] = useState<'services' | 'staff' | 'about' | 'reviews'>('services');
+  const [activeTab, setActiveTab] = useState<'services' | 'slots' | 'staff' | 'about' | 'reviews'>('services');
   const [activeGalleryIdx, setActiveGalleryIdx] = useState<number>(0);
+
+  // Service Review States
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState<boolean>(false);
+  const [reviewModalServiceId, setReviewModalServiceId] = useState<string | undefined>(undefined);
+  const [selectedServiceFilter, setSelectedServiceFilter] = useState<string>('all');
+
+  // Waitlist States
+  const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState<boolean>(false);
+  const [waitlistTargetSlot, setWaitlistTargetSlot] = useState<{ slot: string; dateStr: string } | null>(null);
+  const [selectedSlotDateIdx, setSelectedSlotDateIdx] = useState<number>(0);
+  const [waitlistAlertToast, setWaitlistAlertToast] = useState<string | null>(null);
+
+  const slotDates = [
+    { dayName: 'Wed', dateNum: '24', fullDate: 'Wed 24 Jul' },
+    { dayName: 'Thu', dateNum: '25', fullDate: 'Thu 25 Jul' },
+    { dayName: 'Fri', dateNum: '26', fullDate: 'Fri 26 Jul' },
+    { dayName: 'Sat', dateNum: '27', fullDate: 'Sat 27 Jul' },
+  ];
+
+  const currentSlotDate = slotDates[selectedSlotDateIdx] || slotDates[0];
+
+  const timeSlotsWithAvailability = [
+    { time: '09:00 AM', isAvailable: false, period: 'Morning' },
+    { time: '09:30 AM', isAvailable: false, period: 'Morning' },
+    { time: '10:00 AM', isAvailable: true, period: 'Morning' },
+    { time: '10:30 AM', isAvailable: true, period: 'Morning' },
+    { time: '11:00 AM', isAvailable: true, period: 'Morning' },
+    { time: '12:00 PM', isAvailable: true, period: 'Afternoon' },
+    { time: '01:00 PM', isAvailable: true, period: 'Afternoon' },
+    { time: '03:00 PM', isAvailable: false, period: 'Afternoon' },
+    { time: '04:30 PM', isAvailable: true, period: 'Afternoon' },
+    { time: '06:00 PM', isAvailable: true, period: 'Evening' },
+    { time: '06:30 PM', isAvailable: false, period: 'Evening' },
+  ];
+
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>(() => {
+    const saved = localStorage.getItem('nexora_waitlist_entries');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed parsing waitlist entries', e);
+      }
+    }
+    return [
+      {
+        id: 'wl-demo-1',
+        salonId: salon.id,
+        salonName: salon.name,
+        serviceNames: [salon.services[0]?.name || 'Balayage & Styling'],
+        dateStr: 'Wed 24 Jul',
+        timeSlot: '09:00 AM',
+        clientName: 'Priya Sharma',
+        clientPhone: '+91 98765 43210',
+        notificationPreference: 'both',
+        createdAt: Date.now() - 3600000,
+        position: 1,
+        status: 'ACTIVE',
+      },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nexora_waitlist_entries', JSON.stringify(waitlistEntries));
+  }, [waitlistEntries]);
+
+  const handleOpenWaitlistModal = (slotTime: string) => {
+    setWaitlistTargetSlot({ slot: slotTime, dateStr: currentSlotDate.fullDate });
+    setIsWaitlistModalOpen(true);
+  };
+
+  const handleJoinWaitlistSuccess = (newEntry: WaitlistEntry) => {
+    setWaitlistEntries((prev) => [newEntry, ...prev.filter((e) => e.id !== newEntry.id)]);
+  };
+
+  const handleSimulateOpening = (entry: WaitlistEntry) => {
+    setWaitlistAlertToast(`🔔 WAITLIST ALERT: A spot opened up for ${entry.timeSlot} on ${entry.dateStr} at ${entry.salonName}! Click Book Now before it fills.`);
+
+    setWaitlistEntries((prev) =>
+      prev.map((e) => (e.id === entry.id ? { ...e, status: 'NOTIFIED' } : e))
+    );
+  };
+
+  const handleRemoveWaitlist = (entryId: string) => {
+    setWaitlistEntries((prev) => prev.filter((e) => e.id !== entryId));
+  };
+
+  const [serviceReviews, setServiceReviews] = useState<ServiceReview[]>(() => {
+    const saved = localStorage.getItem(`nexora_service_reviews_${salon.id}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved reviews', e);
+      }
+    }
+
+    // Default mock reviews for this salon
+    const defaultSvc0 = salon.services[0]?.name || 'Balayage & Hair Styling';
+    const defaultSvc1 = salon.services[1]?.name || 'Kerastase Hair Spa';
+    const defaultSvc2 = salon.services[2]?.name || 'Organic Hydra Facial';
+
+    return [
+      {
+        id: 'sr-1',
+        salonId: salon.id,
+        serviceName: defaultSvc0,
+        author: 'Ananya Sharma',
+        rating: 5,
+        date: '2 days ago',
+        comment: 'The balayage shade turned out exactly as I envisioned! Gentle bleaching technique with zero brassiness.',
+        verifiedBooking: true,
+      },
+      {
+        id: 'sr-2',
+        salonId: salon.id,
+        serviceName: defaultSvc1,
+        author: 'Priya Mehta',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'Deep scalp massager and steaming treatment was immensely relaxing. My hair feels 10x softer.',
+        verifiedBooking: true,
+      },
+      {
+        id: 'sr-3',
+        salonId: salon.id,
+        serviceName: defaultSvc2,
+        author: 'Rhea Sen',
+        rating: 4.8,
+        date: '2 weeks ago',
+        comment: 'Thorough blackhead extraction and cold-hammer massage. Face is glowing without any redness.',
+        verifiedBooking: true,
+      },
+      {
+        id: 'sr-4',
+        salonId: salon.id,
+        serviceName: defaultSvc0,
+        author: 'Divya Kapoor',
+        rating: 4.9,
+        date: '3 weeks ago',
+        comment: 'Professional colorist who took time to understand my skin tone before recommending the caramel highlights.',
+        verifiedBooking: true,
+      },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`nexora_service_reviews_${salon.id}`, JSON.stringify(serviceReviews));
+  }, [serviceReviews, salon.id]);
+
+  const handleAddReview = (newRev: Omit<ServiceReview, 'id' | 'date'>) => {
+    const created: ServiceReview = {
+      ...newRev,
+      id: `sr-${Date.now()}`,
+      date: 'Just now',
+    };
+    setServiceReviews((prev) => [created, ...prev]);
+  };
+
+  const openReviewForService = (serviceId?: string) => {
+    setReviewModalServiceId(serviceId);
+    setIsReviewModalOpen(true);
+  };
+
+  // Helper to compute specific service stats
+  const getServiceStats = (serviceName: string) => {
+    const matching = serviceReviews.filter((r) => r.serviceName.toLowerCase() === serviceName.toLowerCase());
+    if (matching.length === 0) {
+      return { rating: 4.8, count: 5 }; // fallback baseline
+    }
+    const sum = matching.reduce((acc, r) => acc + r.rating, 0);
+    const avg = (sum / matching.length).toFixed(1);
+    return { rating: parseFloat(avg), count: matching.length };
+  };
 
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
   // Group services by category
   const categories = Array.from(new Set(salon.services.map((s) => s.category)));
 
-  const mockReviews = [
-    {
-      id: 'r1',
-      author: 'Ananya Sharma',
-      rating: 5,
-      date: '2 days ago',
-      comment: 'Absolutely in love with my Balayage! Maya is a wizard with hair coloring. Highly recommended studio!',
-      service: 'Balayage & Toning',
-    },
-    {
-      id: 'r2',
-      author: 'Priya Mehta',
-      rating: 5,
-      date: '1 week ago',
-      comment: 'The Kerastase Hair Spa left my hair feeling so glossy and smooth. Wonderful luxury ambiance.',
-      service: 'Kerastase Hair Spa',
-    },
-    {
-      id: 'r3',
-      author: 'Rohan Verma',
-      rating: 4.8,
-      date: '2 weeks ago',
-      comment: 'Punctual staff, pristine hygiene, and gentle service. Will visit again.',
-      service: 'Men Haircut & Beard Trim',
-    },
-  ];
+  // Filtered reviews list
+  const filteredReviews = selectedServiceFilter === 'all'
+    ? serviceReviews
+    : serviceReviews.filter((r) => r.serviceName === selectedServiceFilter);
 
   return (
     <div className="flex flex-col w-full relative pb-32">
+      {/* Service Review Modal */}
+      <ServiceReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        salon={salon}
+        preselectedServiceId={reviewModalServiceId}
+        onSubmitReview={handleAddReview}
+      />
+
+      {/* Waitlist Modal */}
+      <WaitlistModal
+        isOpen={isWaitlistModalOpen}
+        onClose={() => setIsWaitlistModalOpen(false)}
+        salon={salon}
+        timeSlot={waitlistTargetSlot?.slot || '09:00 AM'}
+        dateStr={waitlistTargetSlot?.dateStr || currentSlotDate.fullDate}
+        selectedServicesSummary={selectedServices.map((s) => s.name).join(', ')}
+        onJoinSuccess={handleJoinWaitlistSuccess}
+      />
+
+      {/* Waitlist Cancellation Alert Toast */}
+      {waitlistAlertToast && (
+        <div className="fixed top-18 inset-x-4 z-50 bg-[#26181c] text-white p-3.5 rounded-2xl shadow-2xl border-2 border-[#e6007e] flex items-start justify-between gap-3 animate-in slide-in-from-top max-w-md mx-auto">
+          <div className="flex gap-2.5">
+            <span className="material-symbols-outlined text-amber-400 text-[24px] shrink-0 animate-bounce">
+              notifications_active
+            </span>
+            <div className="text-xs">
+              <p className="font-bold text-amber-300">Waitlist Alert!</p>
+              <p className="text-slate-200 mt-0.5 leading-snug">{waitlistAlertToast}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setWaitlistAlertToast(null)}
+            className="text-slate-400 hover:text-white p-1 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Header Back Bar */}
+
       <div className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe max-w-md mx-auto">
         <div className="flex items-center h-16 px-4 gap-1">
           <button
@@ -153,19 +349,30 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
           <div className="flex bg-[#ffe8ed] rounded-full p-1 relative w-full h-[44px]">
             <button
               onClick={() => setActiveTab('services')}
-              className={`flex-1 text-[13px] font-semibold rounded-full transition-all duration-300 ${
+              className={`flex-1 text-[12px] sm:text-[13px] font-semibold rounded-full transition-all duration-300 py-2 ${
                 activeTab === 'services'
-                  ? 'bg-white text-[#26181c] shadow-sm'
+                  ? 'bg-white text-[#26181c] shadow-sm font-bold'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
               }`}
             >
               Services
             </button>
             <button
+              onClick={() => setActiveTab('slots')}
+              className={`flex-1 text-[12px] sm:text-[13px] font-semibold rounded-full transition-all duration-300 py-2 relative ${
+                activeTab === 'slots'
+                  ? 'bg-white text-[#e6007e] shadow-sm font-bold'
+                  : 'text-[#5a3f47] hover:text-[#26181c]'
+              }`}
+            >
+              Slots & Waitlist
+              <span className="absolute -top-1 -right-0.5 w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+            </button>
+            <button
               onClick={() => setActiveTab('staff')}
-              className={`flex-1 text-[13px] font-semibold rounded-full transition-all duration-300 ${
+              className={`flex-1 text-[12px] sm:text-[13px] font-semibold rounded-full transition-all duration-300 py-2 ${
                 activeTab === 'staff'
-                  ? 'bg-white text-[#26181c] shadow-sm'
+                  ? 'bg-white text-[#26181c] shadow-sm font-bold'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
               }`}
             >
@@ -173,9 +380,9 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('about')}
-              className={`flex-1 text-[13px] font-semibold rounded-full transition-all duration-300 ${
+              className={`flex-1 text-[12px] sm:text-[13px] font-semibold rounded-full transition-all duration-300 py-2 ${
                 activeTab === 'about'
-                  ? 'bg-white text-[#26181c] shadow-sm'
+                  ? 'bg-white text-[#26181c] shadow-sm font-bold'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
               }`}
             >
@@ -183,9 +390,9 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('reviews')}
-              className={`flex-1 text-[13px] font-semibold rounded-full transition-all duration-300 ${
+              className={`flex-1 text-[12px] sm:text-[13px] font-semibold rounded-full transition-all duration-300 py-2 ${
                 activeTab === 'reviews'
-                  ? 'bg-white text-[#26181c] shadow-sm'
+                  ? 'bg-white text-[#26181c] shadow-sm font-bold'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
               }`}
             >
@@ -207,38 +414,58 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                     <div className="flex flex-col gap-3">
                       {catServices.map((service) => {
                         const isSelected = selectedServices.some((s) => s.id === service.id);
+                        const stats = getServiceStats(service.name);
                         return (
                           <div
                             key={service.id}
-                            className={`flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border transition-all ${
-                              isSelected ? 'border-[#e6007e] bg-[#fff0f2]' : 'border-transparent'
+                            className={`flex flex-col p-4 bg-white rounded-2xl shadow-sm border transition-all ${
+                              isSelected ? 'border-[#e6007e] bg-[#fff0f2]' : 'border-slate-100 hover:border-[#fcd5e8]'
                             }`}
                           >
-                            <div className="flex flex-col gap-1 max-w-[65%]">
-                              <span className="text-[15px] font-semibold text-[#26181c]">
-                                {service.name}
-                              </span>
-                              <span className="text-[12px] text-[#5a3f47] font-medium">
-                                {service.durationMinutes} mins • {service.description || 'Custom treatment'}
-                              </span>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex flex-col gap-1 max-w-[65%]">
+                                <span className="text-[15px] font-semibold text-[#26181c]">
+                                  {service.name}
+                                </span>
+                                <span className="text-[12px] text-[#5a3f47] font-medium">
+                                  {service.durationMinutes} mins • {service.description || 'Custom treatment'}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col items-end gap-1.5">
+                                <span className="text-[18px] font-bold text-[#e6007e]">
+                                  ₹{service.price}
+                                </span>
+                                <button
+                                  onClick={() => onToggleService(service)}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-[#e6007e] text-white shadow-xs'
+                                      : 'bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white'
+                                  }`}
+                                  aria-label={isSelected ? 'Remove service' : 'Add service'}
+                                >
+                                  <span className="material-symbols-outlined text-[20px]">
+                                    {isSelected ? 'check' : 'add'}
+                                  </span>
+                                </button>
+                              </div>
                             </div>
 
-                            <div className="flex flex-col items-end gap-1.5">
-                              <span className="text-[18px] font-bold text-[#e6007e]">
-                                ₹{service.price}
-                              </span>
+                            {/* Service Rating & Review Action Bar */}
+                            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                              <div className="flex items-center gap-1.5 bg-[#fff0f3] px-2.5 py-1 rounded-lg border border-[#fcd5e8]">
+                                <span className="material-symbols-outlined text-[14px] text-amber-500">star</span>
+                                <span className="font-extrabold text-[#26181c]">{stats.rating}</span>
+                                <span className="text-[#8c7077] font-medium">({stats.count} reviews)</span>
+                              </div>
+
                               <button
-                                onClick={() => onToggleService(service)}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                                  isSelected
-                                    ? 'bg-[#e6007e] text-white'
-                                    : 'bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white'
-                                }`}
-                                aria-label={isSelected ? 'Remove service' : 'Add service'}
+                                onClick={() => openReviewForService(service.id)}
+                                className="text-[#e6007e] font-bold hover:underline flex items-center gap-1 cursor-pointer"
                               >
-                                <span className="material-symbols-outlined text-[20px]">
-                                  {isSelected ? 'check' : 'add'}
-                                </span>
+                                <span className="material-symbols-outlined text-[13px]">rate_review</span>
+                                Review Service
                               </button>
                             </div>
                           </div>
@@ -248,6 +475,158 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Slots & Waitlist Tab */}
+          {activeTab === 'slots' && (
+            <div className="flex flex-col gap-5 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#26181c]">Appointment Time Slots</h3>
+                  <p className="text-[11px] text-[#5a3f47]">Select an available slot or join waitlist for filled slots</p>
+                </div>
+                <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                  <span className="material-symbols-outlined text-[12px]">schedule</span>
+                  Live Slots
+                </span>
+              </div>
+
+              {/* Date Selector Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {slotDates.map((item, idx) => {
+                  const isSel = selectedSlotDateIdx === idx;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedSlotDateIdx(idx)}
+                      className={`px-3.5 py-2 rounded-2xl flex flex-col items-center min-w-[72px] transition-all cursor-pointer ${
+                        isSel
+                          ? 'bg-[#e6007e] text-white shadow-sm font-bold scale-105'
+                          : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase font-medium">{item.dayName}</span>
+                      <span className="text-[14px] font-extrabold">{item.dateNum} Jul</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active User Waitlists Banner for this salon */}
+              {waitlistEntries.filter((e) => e.salonId === salon.id).length > 0 && (
+                <div className="bg-gradient-to-r from-amber-50 to-[#fff0f3] p-4 rounded-2xl border border-amber-200 shadow-xs flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-[#26181c] flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-amber-600 text-[18px]">list_alt</span>
+                      Your Active Waitlists ({waitlistEntries.filter((e) => e.salonId === salon.id).length})
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                      Auto-Notifying
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {waitlistEntries.filter((e) => e.salonId === salon.id).map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[#26181c]">
+                              {entry.timeSlot} • {entry.dateStr}
+                            </span>
+                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
+                              Queue #{entry.position}
+                            </span>
+                            {entry.status === 'NOTIFIED' && (
+                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                                Slot Opened!
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[#5a3f47] mt-0.5">
+                            Alert via <strong className="uppercase">{entry.notificationPreference}</strong> ({entry.clientPhone})
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                          <button
+                            onClick={() => handleSimulateOpening(entry)}
+                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer shadow-2xs flex items-center gap-0.5 active:scale-95"
+                            title="Simulate cancellation alert"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">bolt</span>
+                            Simulate Slot Alert
+                          </button>
+                          <button
+                            onClick={() => handleRemoveWaitlist(entry.id)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Time Slots Grid */}
+              <div className="space-y-4">
+                {['Morning', 'Afternoon', 'Evening'].map((period) => {
+                  const slotsInPeriod = timeSlotsWithAvailability.filter((s) => s.period === period);
+                  return (
+                    <div key={period} className="bg-white p-4 rounded-2xl border border-[#f0d8e2] shadow-xs">
+                      <h4 className="text-xs font-extrabold text-[#5a3f47] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-amber-500">
+                          {period === 'Morning' ? 'light_mode' : period === 'Afternoon' ? 'wb_sunny' : 'bedtime'}
+                        </span>
+                        {period} Slots
+                      </h4>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {slotsInPeriod.map((slot) => {
+                          if (slot.isAvailable) {
+                            return (
+                              <button
+                                key={slot.time}
+                                onClick={onProceedToCheckout}
+                                className="p-2.5 rounded-xl bg-[#fff0f3] hover:bg-[#e6007e] hover:text-white border border-[#fcd5e8] text-[#26181c] transition-all cursor-pointer flex flex-col items-center justify-center group active:scale-95"
+                              >
+                                <span className="text-xs font-bold">{slot.time}</span>
+                                <span className="text-[9px] text-[#e6007e] group-hover:text-white font-extrabold">Available</span>
+                              </button>
+                            );
+                          }
+
+                          // FULLY BOOKED SLOT - JOIN WAITLIST BUTTON
+                          return (
+                            <div
+                              key={slot.time}
+                              className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center gap-1 relative overflow-hidden"
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs font-bold text-slate-400 line-through">{slot.time}</span>
+                                <span className="text-[9px] font-extrabold bg-slate-200 text-slate-700 px-1 rounded">Booked</span>
+                              </div>
+
+                              <button
+                                onClick={() => handleOpenWaitlistModal(slot.time)}
+                                className="w-full py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-0.5 active:scale-95"
+                              >
+                                <span className="material-symbols-outlined text-[12px]">notifications_active</span>
+                                Join Waitlist
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -348,27 +727,151 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
 
           {/* Reviews Tab */}
           {activeTab === 'reviews' && (
-            <div className="flex flex-col gap-4 animate-in fade-in">
+            <div className="flex flex-col gap-5 animate-in fade-in">
+              {/* Header Action Bar */}
               <div className="flex items-center justify-between">
-                <h3 className="text-[18px] font-bold text-[#26181c]">Client Feedback</h3>
-                <span className="text-xs text-[#e6007e] font-semibold">100% Verified Bookings</span>
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#26181c]">Service Reviews & Feedback</h3>
+                  <p className="text-[11px] text-[#5a3f47]">Rated by verified clients after appointment completion</p>
+                </div>
+                <button
+                  onClick={() => openReviewForService()}
+                  className="px-3.5 py-2 bg-[#e6007e] hover:bg-[#c9006e] text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[16px]">rate_review</span>
+                  Write Review
+                </button>
               </div>
 
-              <div className="flex flex-col gap-3">
-                {mockReviews.map((rev) => (
-                  <div key={rev.id} className="p-4 bg-white rounded-2xl shadow-sm border border-[#e8e8e8]">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-[15px] text-[#26181c]">{rev.author}</span>
-                      <div className="flex items-center gap-1 bg-[#ffe8ed] px-2 py-0.5 rounded-lg">
-                        <span className="text-xs font-bold text-[#26181c]">{rev.rating}</span>
-                        <span className="material-symbols-outlined text-[13px] text-amber-500">star</span>
+              {/* Service Ratings Breakdown Card */}
+              <div className="bg-gradient-to-br from-[#fff0f3] to-white rounded-2xl p-4 border border-[#fcd5e8] shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-[#fce2e7] pb-2">
+                  <span className="text-xs font-bold text-[#26181c] flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[#e6007e] text-[16px]">stars</span>
+                    Service Rating Breakdown
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                    Verified Reviews ({serviceReviews.length})
+                  </span>
+                </div>
+
+                {/* Progress bars for services */}
+                <div className="space-y-2">
+                  {salon.services.slice(0, 4).map((svc) => {
+                    const stats = getServiceStats(svc.name);
+                    const percentage = Math.round((stats.rating / 5) * 100);
+                    return (
+                      <div key={svc.id} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-[#26181c] font-semibold text-[11px] truncate max-w-[140px]">
+                          {svc.name}
+                        </span>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-400 to-[#e6007e] rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 text-[11px]">
+                          <span className="font-extrabold text-[#26181c]">{stats.rating}</span>
+                          <span className="material-symbols-outlined text-[12px] text-amber-500">star</span>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-[11px] text-[#8c7077]">{rev.date} • {rev.service}</span>
-                    <p className="text-[14px] text-[#5a3f47] mt-2 leading-relaxed">{rev.comment}</p>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Service Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  onClick={() => setSelectedServiceFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    selectedServiceFilter === 'all'
+                      ? 'bg-[#26181c] text-white shadow-xs'
+                      : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+                  }`}
+                >
+                  All Services ({serviceReviews.length})
+                </button>
+                {salon.services.map((svc) => {
+                  const count = serviceReviews.filter((r) => r.serviceName === svc.name).length;
+                  return (
+                    <button
+                      key={svc.id}
+                      onClick={() => setSelectedServiceFilter(svc.name)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 ${
+                        selectedServiceFilter === svc.name
+                          ? 'bg-[#e6007e] text-white shadow-xs'
+                          : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+                      }`}
+                    >
+                      <span>{svc.name}</span>
+                      {count > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 font-extrabold">
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Service Reviews List */}
+              {filteredReviews.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {filteredReviews.map((rev) => (
+                    <div
+                      key={rev.id}
+                      className="p-4 bg-white rounded-2xl shadow-sm border border-[#e8e8e8] flex flex-col gap-2 relative overflow-hidden"
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[15px] text-[#26181c]">{rev.author}</span>
+                            {rev.verifiedBooking && (
+                              <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-0.5">
+                                <span className="material-symbols-outlined text-[12px]">verified</span>
+                                Verified Client
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#fde7f3] text-[#e6007e] border border-[#fcd5e8]">
+                              🏷️ {rev.serviceName}
+                            </span>
+                            <span className="text-[11px] text-[#8c7077]">• {rev.date}</span>
+                          </div>
+                        </div>
+
+                        {/* Rating Badge */}
+                        <div className="flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-xl shrink-0">
+                          <span className="text-xs font-extrabold">{rev.rating}</span>
+                          <span className="material-symbols-outlined text-[14px] text-amber-500">star</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[14px] text-[#5a3f47] mt-1 leading-relaxed">
+                        {rev.comment}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 px-4 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center gap-2">
+                  <span className="material-symbols-outlined text-[32px] text-slate-300">rate_review</span>
+                  <p className="text-xs font-bold text-[#26181c]">No reviews yet for "{selectedServiceFilter}"</p>
+                  <p className="text-[11px] text-[#5a3f47]">Be the first client to leave a rating and written feedback!</p>
+                  <button
+                    onClick={() => {
+                      const matchedSvc = salon.services.find((s) => s.name === selectedServiceFilter);
+                      openReviewForService(matchedSvc?.id);
+                    }}
+                    className="mt-1 px-3.5 py-1.5 bg-[#e6007e] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                  >
+                    Write First Review
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

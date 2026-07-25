@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Salon, Service, Staff } from '../types';
+import { Salon, Service, Staff, WaitlistEntry } from '../types';
+import { WaitlistModal } from './WaitlistModal';
 
 interface CheckoutScreenProps {
   salon: Salon;
@@ -26,6 +27,23 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [selectedDateIdx, setSelectedDateIdx] = useState<number>(0);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('11:00 AM');
   const [currentMonthYear, setCurrentMonthYear] = useState<string>('July 2024');
+
+  // Waitlist State
+  const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState<boolean>(false);
+  const [waitlistSlot, setWaitlistSlot] = useState<string>('09:00 AM');
+  const [waitlistJoinedToast, setWaitlistJoinedToast] = useState<string | null>(null);
+
+  const handleOpenWaitlist = (slotTime: string) => {
+    setWaitlistSlot(slotTime);
+    setIsWaitlistModalOpen(true);
+  };
+
+  const handleWaitlistSuccess = (entry: WaitlistEntry) => {
+    setWaitlistJoinedToast(`Waitlist Active: You will be notified instantly if ${entry.timeSlot} on ${entry.dateStr} opens up!`);
+    setTimeout(() => {
+      setWaitlistJoinedToast(null);
+    }, 5000);
+  };
 
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
@@ -79,6 +97,35 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
   return (
     <div className="flex flex-col w-full relative min-h-screen bg-[#fff8f8] pb-32">
+      {/* Waitlist Modal */}
+      <WaitlistModal
+        isOpen={isWaitlistModalOpen}
+        onClose={() => setIsWaitlistModalOpen(false)}
+        salon={salon}
+        timeSlot={waitlistSlot}
+        dateStr={activeDateObj.fullDate}
+        selectedServicesSummary={selectedServices.map((s) => s.name).join(', ')}
+        onJoinSuccess={handleWaitlistSuccess}
+      />
+
+      {/* Waitlist Toast */}
+      {waitlistJoinedToast && (
+        <div className="fixed top-18 inset-x-4 z-50 bg-[#26181c] text-white p-3.5 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center justify-between gap-3 animate-in slide-in-from-top max-w-md mx-auto">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-amber-400 text-[22px] shrink-0">
+              notifications_active
+            </span>
+            <p className="text-xs font-semibold">{waitlistJoinedToast}</p>
+          </div>
+          <button
+            onClick={() => setWaitlistJoinedToast(null)}
+            className="text-slate-400 hover:text-white p-1 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
+
       {/* Fixed Top Header */}
       <header className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe max-w-md mx-auto">
         <div className="flex items-center h-16 px-4 gap-1">
@@ -189,10 +236,15 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                   return (
                     <button
                       key={slot.time}
-                      disabled
-                      className="h-12 rounded-xl bg-white text-[#26181c]/30 font-medium text-[14px] line-through cursor-not-allowed shadow-sm"
+                      type="button"
+                      onClick={() => handleOpenWaitlist(slot.time)}
+                      className="h-12 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[11px] flex flex-col items-center justify-center cursor-pointer transition-all active:scale-95 shadow-2xs group"
                     >
-                      {slot.time}
+                      <span className="line-through opacity-60 text-[10px]">{slot.time}</span>
+                      <span className="flex items-center gap-0.5 text-amber-700 group-hover:text-amber-900 font-extrabold text-[10px]">
+                        <span className="material-symbols-outlined text-[12px]">notifications_active</span>
+                        Waitlist
+                      </span>
                     </button>
                   );
                 }
@@ -225,10 +277,15 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                   return (
                     <button
                       key={slot.time}
-                      disabled
-                      className="h-12 rounded-xl bg-white text-[#26181c]/30 font-medium text-[14px] line-through cursor-not-allowed shadow-sm"
+                      type="button"
+                      onClick={() => handleOpenWaitlist(slot.time)}
+                      className="h-12 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[11px] flex flex-col items-center justify-center cursor-pointer transition-all active:scale-95 shadow-2xs group"
                     >
-                      {slot.time}
+                      <span className="line-through opacity-60 text-[10px]">{slot.time}</span>
+                      <span className="flex items-center gap-0.5 text-amber-700 group-hover:text-amber-900 font-extrabold text-[10px]">
+                        <span className="material-symbols-outlined text-[12px]">notifications_active</span>
+                        Waitlist
+                      </span>
                     </button>
                   );
                 }

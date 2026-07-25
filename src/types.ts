@@ -90,3 +90,43 @@ export interface LoyaltyTier {
   perks: string[];
 }
 
+export interface AppNotification {
+  id: string;
+  bookingId: string;
+  salonName: string;
+  timeSlot: string;
+  dateStr: string;
+  servicesSummary: string;
+  timestamp: number;
+  read: boolean;
+  type: 'reminder_1h' | 'booking_confirmed' | 'general';
+  message: string;
+}
+
+export interface ServiceReview {
+  id: string;
+  salonId: string;
+  serviceId?: string;
+  serviceName: string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+  verifiedBooking?: boolean;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  salonId: string;
+  salonName: string;
+  serviceNames: string[];
+  dateStr: string;
+  timeSlot: string;
+  clientName: string;
+  clientPhone: string;
+  notificationPreference: 'sms' | 'push' | 'both';
+  createdAt: number;
+  position: number;
+  status: 'ACTIVE' | 'NOTIFIED' | 'EXPIRED' | 'CANCELLED';
+}
+

@@ -5,12 +5,14 @@ interface BookingsScreenProps {
   bookings: Booking[];
   onNavigate: (screen: Screen) => void;
   onCancelBooking: (bookingId: string) => void;
+  onTriggerTestNotification?: (bookingId: string) => void;
 }
 
 export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   bookings,
   onNavigate,
   onCancelBooking,
+  onTriggerTestNotification,
 }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -115,10 +117,19 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSelectedBooking(booking)}
-                      className="flex-1 h-[48px] bg-[#fde7f3] text-[#e6007e] text-[13px] font-semibold rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                      className="flex-1 h-[44px] bg-[#fde7f3] text-[#e6007e] text-[12px] font-bold rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5"
                     >
-                      Manage Booking
+                      Manage
                     </button>
+                    {onTriggerTestNotification && (
+                      <button
+                        onClick={() => onTriggerTestNotification(booking.id)}
+                        className="flex-1 h-[44px] bg-[#26181c] text-amber-300 text-[12px] font-bold rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-[16px] animate-pulse text-amber-400">notifications_active</span>
+                        Test 1h Push
+                      </button>
+                    )}
                   </div>
                 </div>
               );

@@ -1,4 +1,15 @@
 import React, { useState } from 'react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  LineChart,
+  Line,
+} from 'recharts';
 import { AVATAR_URL } from '../data/mockData';
 import { Screen, UserLocation } from '../types';
 
@@ -9,6 +20,21 @@ interface ProfileScreenProps {
   onOpenLocation: () => void;
 }
 
+interface MonthlyStat {
+  month: string;
+  spending: number;
+  appointments: number;
+}
+
+const SIX_MONTH_STATS: MonthlyStat[] = [
+  { month: 'Feb', spending: 1200, appointments: 2 },
+  { month: 'Mar', spending: 2400, appointments: 3 },
+  { month: 'Apr', spending: 1800, appointments: 2 },
+  { month: 'May', spending: 3100, appointments: 4 },
+  { month: 'Jun', spending: 1500, appointments: 2 },
+  { month: 'Jul', spending: 2450, appointments: 3 },
+];
+
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   location,
   favoritesCount,
@@ -16,6 +42,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenLocation,
 }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [activeMetric, setActiveMetric] = useState<'spending' | 'appointments'>('spending');
+
+  const totalSpent = SIX_MONTH_STATS.reduce((acc, curr) => acc + curr.spending, 0);
+  const totalAppointments = SIX_MONTH_STATS.reduce((acc, curr) => acc + curr.appointments, 0);
+  const avgSpentPerSession = Math.round(totalSpent / totalAppointments);
 
   return (
     <div className="flex flex-col w-full gap-5 pb-28 pt-2 animate-in fade-in">
@@ -35,6 +66,132 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
           <p className="text-[13px] text-[#5a3f47] font-medium">+91 98765 43210</p>
           <p className="text-[11px] text-[#e6007e] font-semibold mt-0.5">priya.sharma@example.com</p>
+        </div>
+      </div>
+
+      {/* Booking Stats Card with Recharts */}
+      <div className="bg-white rounded-[24px] p-5 shadow-sm border border-[#f0d8e2] flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#fde7f3] text-[#e6007e] flex items-center justify-center">
+              <span className="material-symbols-outlined text-[20px]">analytics</span>
+            </div>
+            <div>
+              <h3 className="text-[15px] font-bold text-[#26181c]">Booking Stats</h3>
+              <p className="text-[11px] text-[#5a3f47]">Last 6 Months Activity</p>
+            </div>
+          </div>
+
+          <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-[#fde7f3] text-[#e6007e] border border-[#f3c2dc]">
+            Feb - Jul 2024
+          </span>
+        </div>
+
+        {/* Quick KPI Counters */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-[#fff0f3] p-2.5 rounded-2xl border border-[#fcd5e8] flex flex-col">
+            <span className="text-[10px] text-[#8c7077] font-medium">Total Spent</span>
+            <span className="text-[15px] font-extrabold text-[#e6007e]">₹{totalSpent.toLocaleString('en-IN')}</span>
+          </div>
+
+          <div className="bg-[#fff0f3] p-2.5 rounded-2xl border border-[#fcd5e8] flex flex-col">
+            <span className="text-[10px] text-[#8c7077] font-medium">Appointments</span>
+            <span className="text-[15px] font-extrabold text-[#26181c]">{totalAppointments} Visits</span>
+          </div>
+
+          <div className="bg-[#fff0f3] p-2.5 rounded-2xl border border-[#fcd5e8] flex flex-col">
+            <span className="text-[10px] text-[#8c7077] font-medium">Avg / Visit</span>
+            <span className="text-[15px] font-extrabold text-[#26181c]">₹{avgSpentPerSession}</span>
+          </div>
+        </div>
+
+        {/* Metric Selector Pills */}
+        <div className="flex bg-[#f8eff3] p-1 rounded-xl gap-1">
+          <button
+            onClick={() => setActiveMetric('spending')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeMetric === 'spending'
+                ? 'bg-white text-[#e6007e] shadow-xs'
+                : 'text-[#5a3f47] hover:text-[#26181c]'
+            }`}
+          >
+            Monthly Spending (₹)
+          </button>
+          <button
+            onClick={() => setActiveMetric('appointments')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeMetric === 'appointments'
+                ? 'bg-white text-[#e6007e] shadow-xs'
+                : 'text-[#5a3f47] hover:text-[#26181c]'
+            }`}
+          >
+            Appointments Count
+          </button>
+        </div>
+
+        {/* Recharts Visual Container */}
+        <div className="w-full h-[200px] pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            {activeMetric === 'spending' ? (
+              <BarChart data={SIX_MONTH_STATS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0d8e2" />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#5a3f47' }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#8c7077' }} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(230, 0, 126, 0.05)' }}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#26181c] text-white p-2.5 rounded-xl shadow-lg border border-[#e6007e] text-xs">
+                          <p className="font-bold text-amber-300">{label} 2024</p>
+                          <p className="text-white mt-0.5">
+                            Spent: <strong className="text-[#e6007e]">₹{payload[0].value}</strong>
+                          </p>
+                          <p className="text-slate-300 text-[10px]">
+                            {SIX_MONTH_STATS.find((s) => s.month === label)?.appointments} appointments booked
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="spending" fill="#e6007e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            ) : (
+              <LineChart data={SIX_MONTH_STATS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0d8e2" />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#5a3f47' }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#8c7077' }} allowDecimals={false} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#26181c] text-white p-2.5 rounded-xl shadow-lg border border-[#e6007e] text-xs">
+                          <p className="font-bold text-amber-300">{label} 2024</p>
+                          <p className="text-white mt-0.5">
+                            Appointments: <strong className="text-[#e6007e]">{payload[0].value} visits</strong>
+                          </p>
+                          <p className="text-slate-300 text-[10px]">
+                            Spent: ₹{SIX_MONTH_STATS.find((s) => s.month === label)?.spending}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="appointments"
+                  stroke="#e6007e"
+                  strokeWidth={3}
+                  dot={{ r: 5, fill: '#e6007e', strokeWidth: 2, stroke: '#ffffff' }}
+                  activeDot={{ r: 7 }}
+                />
+              </LineChart>
+            )}
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -133,3 +290,4 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     </div>
   );
 };
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Screen, Salon, Service, Staff, Booking, UserLocation } from './types';
+import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification } from './types';
 import {
   MOCK_SALONS,
   INITIAL_BOOKINGS,
@@ -18,6 +18,8 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { RewardsScreen } from './components/RewardsScreen';
 import { ProfileScreen } from './components/ProfileScreen';
 import { BookingConfirmationModal } from './components/BookingConfirmationModal';
+import { NotificationOverlay } from './components/NotificationOverlay';
+import { NotificationDrawer } from './components/NotificationDrawer';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
@@ -47,6 +49,29 @@ export default function App() {
 
   const [confirmedModalBooking, setConfirmedModalBooking] = useState<Booking | null>(null);
 
+  // Notification States
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const saved = localStorage.getItem('nexora_notifications');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'notif-init-1',
+        bookingId: 'bk-101',
+        salonName: 'Aura Premium Salon',
+        timeSlot: '11:00 AM',
+        dateStr: 'Sat, 28 Jul',
+        servicesSummary: 'Balayage & Hair Styling',
+        timestamp: Date.now() - 300000,
+        read: false,
+        type: 'reminder_1h',
+        message: 'Your appointment at Aura Premium Salon starts in 1 hour at 11:00 AM!',
+      },
+    ];
+  });
+
+  const [activePushOverlay, setActivePushOverlay] = useState<AppNotification | null>(null);
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+
   // Sync state to localStorage
   useEffect(() => {
     localStorage.setItem('nexora_favorites', JSON.stringify(favorites));
@@ -59,6 +84,48 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('nexora_user_location', JSON.stringify(userLocation));
   }, [userLocation]);
+
+  useEffect(() => {
+    localStorage.setItem('nexora_notifications', JSON.stringify(notifications));
+  }, [notifications]);
+
+  // Trigger push notification helper
+  const triggerPushNotificationForBooking = (targetBookingId?: string) => {
+    const targetBooking =
+      bookings.find((b) => b.id === targetBookingId) ||
+      bookings.find((b) => b.status === 'CONFIRMED' || b.status === 'PENDING') ||
+      bookings[0];
+
+    if (!targetBooking) return;
+
+    const newNotif: AppNotification = {
+      id: `notif-${Date.now()}`,
+      bookingId: targetBooking.id,
+      salonName: targetBooking.salonName,
+      timeSlot: targetBooking.timeSlot,
+      dateStr: targetBooking.dateStr,
+      servicesSummary: targetBooking.services.map((s) => s.name).join(', '),
+      timestamp: Date.now(),
+      read: false,
+      type: 'reminder_1h',
+      message: `Your appointment at ${targetBooking.salonName} starts in 1 hour (${targetBooking.timeSlot})!`,
+    };
+
+    setNotifications((prev) => [newNotif, ...prev]);
+    setActivePushOverlay(newNotif);
+
+    // Trigger Browser Push Notification if browser supports and permitted
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification(`⏰ 1-Hour Reminder: ${targetBooking.salonName}`, {
+          body: `Your appointment for ${newNotif.servicesSummary} starts in 1 hour at ${targetBooking.timeSlot}.`,
+          icon: '/icon.png',
+        });
+      } catch (e) {
+        console.warn('Native push notification error', e);
+      }
+    }
+  };
 
   const handleToggleFavorite = (salonId: string) => {
     setFavorites((prev) =>
@@ -108,12 +175,31 @@ export default function App() {
 
     setBookings((prev) => [newBooking, ...prev]);
     setConfirmedModalBooking(newBooking);
+
+    // Auto-schedule preview push notification for new booking after 1.5 seconds
+    setTimeout(() => {
+      triggerPushNotificationForBooking(newBooking.id);
+    }, 1500);
   };
 
   const handleCancelBooking = (bookingId: string) => {
     setBookings((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
     );
+  };
+
+  const handleSnoozeNotification = (id: string) => {
+    setActivePushOverlay(null);
+    // Re-trigger overlay after 10 seconds for testing/preview
+    setTimeout(() => {
+      const snoozedNotif = notifications.find((n) => n.id === id);
+      if (snoozedNotif) {
+        setActivePushOverlay({
+          ...snoozedNotif,
+          message: `[Snoozed Alert] ${snoozedNotif.salonName} appointment starts soon at ${snoozedNotif.timeSlot}!`,
+        });
+      }
+    }, 10000);
   };
 
   // Screen Title helper
@@ -139,9 +225,32 @@ export default function App() {
   };
 
   const showHeaderBack = currentScreen === 'search' || currentScreen === 'salon-detail' || currentScreen === 'checkout';
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="min-h-screen bg-[#fff8f8] text-[#26181c] font-['Inter',sans-serif] relative flex flex-col justify-between">
+      {/* Floating Interactive Push Notification Overlay */}
+      <NotificationOverlay
+        notification={activePushOverlay}
+        onDismiss={() => setActivePushOverlay(null)}
+        onSnooze={handleSnoozeNotification}
+        onNavigate={(screen) => setCurrentScreen(screen)}
+      />
+
+      {/* Drawer for Notification History and Push Settings */}
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
+        notifications={notifications}
+        bookings={bookings}
+        onMarkAllAsRead={() =>
+          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+        }
+        onClearAll={() => setNotifications([])}
+        onTriggerTestNotification={triggerPushNotificationForBooking}
+        onNavigate={(screen) => setCurrentScreen(screen)}
+      />
+
       <div className="w-full max-w-md mx-auto flex-1 flex flex-col relative min-h-screen">
         {/* Render Header for main views */}
         {currentScreen !== 'welcome' &&
@@ -158,6 +267,8 @@ export default function App() {
                 else if (currentScreen === 'search') setCurrentScreen('home');
                 else setCurrentScreen('home');
               }}
+              unreadNotificationCount={unreadCount}
+              onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
             />
           )}
 
@@ -226,6 +337,7 @@ export default function App() {
               bookings={bookings}
               onNavigate={(s) => setCurrentScreen(s)}
               onCancelBooking={handleCancelBooking}
+              onTriggerTestNotification={triggerPushNotificationForBooking}
             />
           )}
 
@@ -279,3 +391,4 @@ export default function App() {
     </div>
   );
 }
+

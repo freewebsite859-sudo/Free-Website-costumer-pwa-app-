@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Salon, Screen, UserLocation } from '../types';
-import { BANNER_URL } from '../data/mockData';
+import React, { useState, useMemo } from 'react';
+import { Salon, Screen, UserLocation, Booking } from '../types';
+import { BANNER_URL, INITIAL_BOOKINGS } from '../data/mockData';
 
 interface HomeScreenProps {
   location: UserLocation;
@@ -25,6 +25,119 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [hasNotifications, setHasNotifications] = useState<boolean>(true);
   const [notificationOpen, setNotificationOpen] = useState<boolean>(false);
+  const [recommendationFilter, setRecommendationFilter] = useState<'all' | 'near' | 'category' | 'top'>('all');
+
+  // Load user bookings from local storage or mock to determine past service preferences
+  const userBookings: Booking[] = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('nexora_bookings');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed reading bookings', e);
+    }
+    return INITIAL_BOOKINGS;
+  }, []);
+
+  // Compute user preferred service categories from past bookings
+  const preferredCategories = useMemo(() => {
+    const catCounts: Record<string, number> = {};
+    userBookings.forEach((b) => {
+      b.services.forEach((s) => {
+        catCounts[s.category] = (catCounts[s.category] || 0) + 1;
+      });
+    });
+    // Return sorted categories by frequency
+    return Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
+  }, [userBookings]);
+
+  // Recommendation Heuristic Engine
+  const recommendedSalons = useMemo(() => {
+    const userAreaLower = location.area.toLowerCase();
+    const userCityLower = location.city.toLowerCase();
+
+    const scored = salons.map((salon) => {
+      let score = 50; // base score
+      const reasons: string[] = [];
+
+      // 1. Location match heuristic
+      const areaMatch = salon.area.toLowerCase().includes(userAreaLower) || userAreaLower.includes(salon.area.toLowerCase());
+      const cityMatch = salon.city.toLowerCase().includes(userCityLower) || userCityLower.includes(salon.city.toLowerCase());
+
+      if (areaMatch) {
+        score += 35;
+        reasons.push(`📍 Near ${salon.area}`);
+      } else if (cityMatch) {
+        score += 20;
+        reasons.push(`📍 In ${salon.city}`);
+      }
+
+      if (salon.distanceKm <= 1.5) {
+        score += 25;
+        if (!reasons.some((r) => r.startsWith('📍'))) {
+          reasons.push(`📍 Only ${salon.distanceKm} km away`);
+        }
+      } else if (salon.distanceKm <= 3.0) {
+        score += 15;
+      }
+
+      // 2. Past Service Category Heuristic
+      let hasCategoryMatch = false;
+      if (preferredCategories.length > 0) {
+        const matchesCategory = salon.services.some((s) =>
+          preferredCategories.some((pc) => s.category.toLowerCase().includes(pc.toLowerCase()))
+        );
+        if (matchesCategory) {
+          score += 25;
+          hasCategoryMatch = true;
+          reasons.push(`💇 Matches your ${preferredCategories[0]} preference`);
+        }
+      }
+
+      // Fallback service tags match
+      if (!hasCategoryMatch && salon.tags.length > 0) {
+        reasons.push(`✨ Popular for ${salon.tags[0]}`);
+      }
+
+      // 3. Rating & Quality Heuristic
+      if (salon.rating >= 4.8) {
+        score += 20;
+        reasons.push(`⭐ Top Rated (${salon.rating}★)`);
+      }
+      if (salon.verified) {
+        score += 10;
+      }
+
+      // Clamp percentage match between 86% and 99%
+      const matchPercentage = Math.min(99, Math.max(86, Math.round((score / 150) * 100)));
+
+      return {
+        salon,
+        score,
+        matchPercentage,
+        primaryReason: reasons[0] || `📍 ${salon.distanceKm} km in ${salon.area}`,
+        secondaryReason: reasons[1] || `⭐ ${salon.rating}★ (${salon.reviewCount || 100}+ reviews)`,
+        isLocationMatch: areaMatch || salon.distanceKm <= 2.0,
+        isCategoryMatch: hasCategoryMatch,
+        isTopRated: salon.rating >= 4.8,
+      };
+    });
+
+    // Sort by match score descending
+    scored.sort((a, b) => b.score - a.score);
+
+    // Apply secondary user filter if selected
+    if (recommendationFilter === 'near') {
+      return scored.filter((item) => item.isLocationMatch);
+    }
+    if (recommendationFilter === 'category') {
+      return scored.filter((item) => item.isCategoryMatch || item.salon.tags.length > 0);
+    }
+    if (recommendationFilter === 'top') {
+      return scored.filter((item) => item.isTopRated);
+    }
+
+    return scored;
+  }, [salons, location, preferredCategories, recommendationFilter]);
 
   const categories = [
     { id: 'All', label: 'All', icon: 'auto_awesome' },
@@ -187,6 +300,173 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </h3>
             <p className="text-[15px] text-white/90 font-medium">On premium facials today</p>
           </div>
+        </div>
+      </section>
+
+      {/* Recommended For You Section (Heuristic AI Personalization) */}
+      <section className="flex flex-col gap-3.5 bg-gradient-to-b from-[#fff2f6] to-white p-4 sm:p-5 rounded-[28px] border border-[#f8d3e2] shadow-xs">
+        {/* Section Header */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#e6007e] text-white flex items-center justify-center shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+              </div>
+              <div>
+                <h2 className="text-[18px] font-extrabold text-[#26181c] tracking-tight">Recommended For You</h2>
+                <p className="text-[11px] text-[#5a3f47]">
+                  Tailored based on <strong className="text-[#e6007e]">{location.area}</strong> proximity & service history
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-[#fde7f3] text-[#e6007e] border border-[#f3c2dc] shrink-0">
+              Smart Pick
+            </span>
+          </div>
+
+          {/* Heuristic Filter Switcher */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-2 pb-1 scrollbar-none">
+            <button
+              onClick={() => setRecommendationFilter('all')}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                recommendationFilter === 'all'
+                  ? 'bg-[#26181c] text-white shadow-xs'
+                  : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+              }`}
+            >
+              ✨ Best Match
+            </button>
+            <button
+              onClick={() => setRecommendationFilter('near')}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                recommendationFilter === 'near'
+                  ? 'bg-[#e6007e] text-white shadow-xs'
+                  : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+              }`}
+            >
+              📍 Nearby ({location.area.split(',')[0]})
+            </button>
+            <button
+              onClick={() => setRecommendationFilter('category')}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                recommendationFilter === 'category'
+                  ? 'bg-[#e6007e] text-white shadow-xs'
+                  : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+              }`}
+            >
+              💇 Hair & Care
+            </button>
+            <button
+              onClick={() => setRecommendationFilter('top')}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                recommendationFilter === 'top'
+                  ? 'bg-[#e6007e] text-white shadow-xs'
+                  : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
+              }`}
+            >
+              ⭐ Top Rated (4.8+)
+            </button>
+          </div>
+        </div>
+
+        {/* Recommended Salons Horizontal Scrollable Deck */}
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5">
+          {recommendedSalons.slice(0, 4).map(({ salon, matchPercentage, primaryReason, secondaryReason }) => {
+            const isFav = favorites.includes(salon.id);
+            return (
+              <div
+                key={salon.id}
+                onClick={() => onSelectSalon(salon)}
+                className="min-w-[280px] max-w-[290px] bg-white rounded-2xl border border-[#f0d8e2] overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between shrink-0 active:scale-98"
+              >
+                <div>
+                  {/* Image & Match Badge Header */}
+                  <div className="relative h-36 w-full overflow-hidden bg-slate-100">
+                    <img
+                      src={salon.image}
+                      alt={salon.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+
+                    {/* Match Score Badge */}
+                    <div className="absolute top-3 left-3 bg-[#e6007e] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/20">
+                      <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
+                      {matchPercentage}% Match
+                    </div>
+
+                    {/* Favorite Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(salon.id);
+                      }}
+                      className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#8c7077] hover:text-[#e6007e] transition-colors"
+                      aria-label="Toggle favorite"
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${isFav ? 'text-[#e6007e] fill-current' : ''}`}>
+                        favorite
+                      </span>
+                    </button>
+
+                    {/* Reason Tag Pill overlay at bottom of image */}
+                    <div className="absolute bottom-2 left-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] text-white font-medium truncate flex items-center gap-1">
+                      <span>{primaryReason}</span>
+                    </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="p-3.5 flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-1">
+                      <div>
+                        <h3 className="text-sm font-bold text-[#26181c] truncate max-w-[190px] group-hover:text-[#e6007e] transition-colors">
+                          {salon.name}
+                        </h3>
+                        <p className="text-[11px] text-[#5a3f47] flex items-center gap-1 mt-0.5">
+                          <span className="material-symbols-outlined text-[13px] text-[#e6007e]">location_on</span>
+                          {salon.area} • {salon.distanceKm} km
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 shrink-0">
+                        <span className="material-symbols-outlined text-[13px] text-amber-500">star</span>
+                        <span className="text-[11px] font-extrabold text-[#26181c]">{salon.rating}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-[#8c7077] line-clamp-1 italic">
+                      "{secondaryReason}"
+                    </p>
+
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {salon.tags.slice(0, 2).map((t) => (
+                        <span key={t} className="text-[9px] font-bold bg-[#fff0f3] text-[#e6007e] px-2 py-0.5 rounded-full border border-[#fcd5e8]">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Action */}
+                <div className="px-3.5 pb-3.5 pt-1 flex items-center justify-between border-t border-[#f7e8ef] mt-1">
+                  <div>
+                    <span className="text-[9px] text-[#8c7077] block">Starts at</span>
+                    <span className="text-xs font-extrabold text-[#26181c]">₹{salon.startingPrice}</span>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectSalon(salon);
+                    }}
+                    className="px-4 py-1.5 bg-[#e6007e] hover:bg-[#c9006e] text-white text-[11px] font-bold rounded-xl transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    View Salon
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

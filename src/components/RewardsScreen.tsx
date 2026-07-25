@@ -87,6 +87,18 @@ interface ReferralItem {
   date: string;
 }
 
+interface LeaderboardMember {
+  id: string;
+  name: string;
+  pointsAllTime: number;
+  pointsMonthly: number;
+  pointsWeekly: number;
+  bookings: number;
+  tier: string;
+  avatarBg: string;
+  isUser?: boolean;
+}
+
 export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -94,6 +106,9 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [redeemedDiscount, setRedeemedDiscount] = useState<number | null>(null);
   const [redeemedPointsSpent, setRedeemedPointsSpent] = useState<number>(0);
+
+  // Leaderboard State
+  const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'all_time' | 'this_month' | 'weekly'>('all_time');
 
   // Referral State
   const [userReferralCode, setUserReferralCode] = useState('GLOW-PRIYA-8921');
@@ -165,6 +180,103 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
   };
 
   const { currentTier, nextTier, progressPercent, bookingsNeeded } = getTierDetails(totalBookingsCount);
+
+  // Leaderboard Community Mock Dataset
+  const baseCommunityMembers: LeaderboardMember[] = [
+    {
+      id: 'usr-1',
+      name: 'Meera Singhania',
+      pointsAllTime: 8450,
+      pointsMonthly: 2400,
+      pointsWeekly: 1200,
+      bookings: 14,
+      tier: 'Platinum',
+      avatarBg: 'bg-amber-500 text-white border-amber-300',
+    },
+    {
+      id: 'usr-2',
+      name: 'Kavya Nair',
+      pointsAllTime: 5900,
+      pointsMonthly: 1800,
+      pointsWeekly: 850,
+      bookings: 9,
+      tier: 'Gold',
+      avatarBg: 'bg-[#e6007e] text-white border-pink-200',
+    },
+    {
+      id: 'usr-3',
+      name: 'Tanya Verma',
+      pointsAllTime: 4100,
+      pointsMonthly: 1250,
+      pointsWeekly: 600,
+      bookings: 6,
+      tier: 'Gold',
+      avatarBg: 'bg-purple-600 text-white border-purple-300',
+    },
+    {
+      id: 'usr-4',
+      name: 'Rhea Roy',
+      pointsAllTime: 2850,
+      pointsMonthly: 900,
+      pointsWeekly: 450,
+      bookings: 4,
+      tier: 'Silver',
+      avatarBg: 'bg-slate-700 text-white border-slate-300',
+    },
+    {
+      id: 'usr-5',
+      name: 'Sanya Malhotra',
+      pointsAllTime: 1800,
+      pointsMonthly: 550,
+      pointsWeekly: 250,
+      bookings: 3,
+      tier: 'Silver',
+      avatarBg: 'bg-emerald-600 text-white border-emerald-300',
+    },
+    {
+      id: 'usr-6',
+      name: 'Diya Patel',
+      pointsAllTime: 950,
+      pointsMonthly: 300,
+      pointsWeekly: 150,
+      bookings: 1,
+      tier: 'Bronze',
+      avatarBg: 'bg-amber-800 text-white border-amber-600',
+    },
+  ];
+
+  // Current Logged-in User Profile in Leaderboard
+  const currentUserMember: LeaderboardMember = {
+    id: 'priya-current-user',
+    name: 'Priya Sharma (You)',
+    pointsAllTime: calculatedPoints,
+    pointsMonthly: Math.floor(calculatedPoints * 0.7),
+    pointsWeekly: Math.floor(calculatedPoints * 0.4),
+    bookings: totalBookingsCount,
+    tier: currentTier.name.split(' ')[0],
+    avatarBg: 'bg-[#e6007e] text-white border-white',
+    isUser: true,
+  };
+
+  const allLeaderboardMembers = [...baseCommunityMembers, currentUserMember];
+
+  // Process & Sort Members by selected timeframe
+  const activeLeaderboard = allLeaderboardMembers
+    .map((m) => {
+      let activePoints = m.pointsAllTime;
+      if (leaderboardTimeframe === 'this_month') activePoints = m.pointsMonthly;
+      if (leaderboardTimeframe === 'weekly') activePoints = m.pointsWeekly;
+      return { ...m, activePoints };
+    })
+    .sort((a, b) => b.activePoints - a.activePoints);
+
+  const currentUserRankIndex = activeLeaderboard.findIndex((m) => m.isUser);
+  const currentUserRank = currentUserRankIndex !== -1 ? currentUserRankIndex + 1 : 1;
+  const userAhead = currentUserRankIndex > 0 ? activeLeaderboard[currentUserRankIndex - 1] : null;
+  const pointsToCatchUp = userAhead ? userAhead.activePoints - activeLeaderboard[currentUserRankIndex].activePoints + 1 : 0;
+
+  const top3Members = activeLeaderboard.slice(0, 3);
+  const remainingMembers = activeLeaderboard.slice(3);
 
   const handleCopyCode = (code: string) => {
     if (navigator.clipboard) {
@@ -328,6 +440,220 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
           </button>
         </div>
       </div>
+
+      {/* GLOW CHAMPIONS LEADERBOARD SECTION */}
+      <section className="bg-white rounded-[24px] p-5 border border-[#f0d8e2] shadow-md flex flex-col gap-4">
+        {/* Header Title & Filter Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#f3e1e8] pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 via-[#e6007e] to-purple-600 flex items-center justify-center text-white shadow-sm">
+              <span className="material-symbols-outlined text-[22px]">emoji_events</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[17px] font-bold text-[#26181c]">Glow Leaderboard</h3>
+                <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[12px]">workspace_premium</span>
+                  Live Ranks
+                </span>
+              </div>
+              <p className="text-[11px] text-[#5a3f47]">Compete with salon members & unlock VIP perks!</p>
+            </div>
+          </div>
+
+          {/* Timeframe Filter Tabs */}
+          <div className="flex items-center gap-1 bg-[#f8eff3] p-1 rounded-xl border border-[#ebd2de] self-start sm:self-auto">
+            <button
+              onClick={() => setLeaderboardTimeframe('all_time')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                leaderboardTimeframe === 'all_time'
+                  ? 'bg-[#e6007e] text-white shadow-2xs'
+                  : 'text-[#5a3f47] hover:text-[#26181c]'
+              }`}
+            >
+              All Time
+            </button>
+            <button
+              onClick={() => setLeaderboardTimeframe('this_month')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                leaderboardTimeframe === 'this_month'
+                  ? 'bg-[#e6007e] text-white shadow-2xs'
+                  : 'text-[#5a3f47] hover:text-[#26181c]'
+              }`}
+            >
+              This Month
+            </button>
+            <button
+              onClick={() => setLeaderboardTimeframe('weekly')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                leaderboardTimeframe === 'weekly'
+                  ? 'bg-[#e6007e] text-white shadow-2xs'
+                  : 'text-[#5a3f47] hover:text-[#26181c]'
+              }`}
+            >
+              Weekly Sprint
+            </button>
+          </div>
+        </div>
+
+        {/* Current User Rank Status Banner */}
+        <div className="bg-gradient-to-r from-[#26181c] to-[#421d28] rounded-2xl p-3.5 text-white shadow-sm flex items-center justify-between border border-[#e6007e]/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#e6007e] text-white font-extrabold text-sm flex items-center justify-center border-2 border-amber-300 shrink-0 shadow-sm relative">
+              {currentUserRank === 1 ? '👑' : `#${currentUserRank}`}
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-white">Your Rank: #{currentUserRank} of {activeLeaderboard.length}</span>
+                <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.2 rounded-full font-bold uppercase">
+                  {currentUserMember.tier}
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-200/90 font-medium mt-0.5">
+                {currentUserRank === 1
+                  ? '🏆 You are in 1st Place! Champion of Nexora Salon!'
+                  : userAhead
+                  ? `Only ${pointsToCatchUp} points behind #${currentUserRank - 1} ${userAhead.name.split(' ')[0]}!`
+                  : 'Earn points by booking & referring friends!'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowSimulateModal(true)}
+            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-[#26181c] rounded-xl text-xs font-extrabold transition-all shrink-0 cursor-pointer shadow-xs flex items-center gap-1 active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[14px]">bolt</span>
+            Climb Board
+          </button>
+        </div>
+
+        {/* TOP 3 PODIUM DISPLAY */}
+        {top3Members.length >= 3 && (
+          <div className="grid grid-cols-3 gap-2 items-end pt-2 pb-1">
+            {/* Rank 2 - Silver (Left) */}
+            <div className="flex flex-col items-center bg-slate-50/90 rounded-2xl p-3 border border-slate-200 relative shadow-xs">
+              <div className="absolute -top-3 bg-slate-200 border border-slate-400 text-slate-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5">
+                🥈 #2 Silver
+              </div>
+              <div className={`w-11 h-11 rounded-full ${top3Members[1].avatarBg} font-bold text-sm flex items-center justify-center border-2 border-slate-300 mt-2 shadow-xs`}>
+                {top3Members[1].name.charAt(0)}
+              </div>
+              <h4 className="text-[12px] font-bold text-[#26181c] mt-1.5 text-center truncate w-full">
+                {top3Members[1].name.split(' ')[0]} {top3Members[1].isUser ? '(You)' : ''}
+              </h4>
+              <span className="text-[10px] font-bold text-[#e6007e] bg-[#fde7f3] px-2 py-0.5 rounded-full mt-1">
+                {top3Members[1].activePoints.toLocaleString()} pts
+              </span>
+              <span className="text-[9px] text-[#5a3f47] font-medium mt-0.5">
+                {top3Members[1].bookings} Bookings
+              </span>
+            </div>
+
+            {/* Rank 1 - Gold Champion (Center - Tallest) */}
+            <div className="flex flex-col items-center bg-gradient-to-b from-amber-50 to-amber-100/60 rounded-2xl p-3.5 border-2 border-amber-300 relative shadow-md scale-105 z-10">
+              <div className="absolute -top-3.5 bg-gradient-to-r from-amber-400 to-amber-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 border border-amber-200">
+                <span>👑</span>
+                <span>#1 Champion</span>
+              </div>
+              <div className={`w-13 h-13 rounded-full ${top3Members[0].avatarBg} font-extrabold text-base flex items-center justify-center border-2 border-amber-400 mt-2 shadow-md relative`}>
+                {top3Members[0].name.charAt(0)}
+                <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[#26181c] rounded-full p-0.5 text-[10px] material-symbols-outlined font-extrabold">
+                  stars
+                </span>
+              </div>
+              <h4 className="text-[13px] font-extrabold text-[#26181c] mt-1.5 text-center truncate w-full">
+                {top3Members[0].name.split(' ')[0]} {top3Members[0].isUser ? '(You)' : ''}
+              </h4>
+              <span className="text-[11px] font-extrabold text-amber-900 bg-amber-200 px-2.5 py-0.5 rounded-full mt-1 border border-amber-300">
+                {top3Members[0].activePoints.toLocaleString()} pts
+              </span>
+              <span className="text-[9px] text-amber-800 font-bold mt-0.5">
+                {top3Members[0].bookings} Bookings
+              </span>
+            </div>
+
+            {/* Rank 3 - Bronze (Right) */}
+            <div className="flex flex-col items-center bg-amber-900/5 rounded-2xl p-3 border border-amber-800/20 relative shadow-xs">
+              <div className="absolute -top-3 bg-amber-100 border border-amber-400 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5">
+                🥉 #3 Bronze
+              </div>
+              <div className={`w-11 h-11 rounded-full ${top3Members[2].avatarBg} font-bold text-sm flex items-center justify-center border-2 border-amber-600 mt-2 shadow-xs`}>
+                {top3Members[2].name.charAt(0)}
+              </div>
+              <h4 className="text-[12px] font-bold text-[#26181c] mt-1.5 text-center truncate w-full">
+                {top3Members[2].name.split(' ')[0]} {top3Members[2].isUser ? '(You)' : ''}
+              </h4>
+              <span className="text-[10px] font-bold text-[#e6007e] bg-[#fde7f3] px-2 py-0.5 rounded-full mt-1">
+                {top3Members[2].activePoints.toLocaleString()} pts
+              </span>
+              <span className="text-[9px] text-[#5a3f47] font-medium mt-0.5">
+                {top3Members[2].bookings} Bookings
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* FULL LEADERBOARD LIST (#4 AND BEYOND) */}
+        <div className="flex flex-col gap-2 pt-1">
+          <div className="text-[12px] font-bold text-[#26181c] flex items-center justify-between px-1">
+            <span>Other Contenders</span>
+            <span className="text-[10px] text-[#5a3f47] font-medium">Sorted by Total Loyalty Points</span>
+          </div>
+
+          <div className="space-y-2">
+            {remainingMembers.map((member, idx) => {
+              const rankNum = idx + 4;
+              return (
+                <div
+                  key={member.id}
+                  className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                    member.isUser
+                      ? 'bg-gradient-to-r from-[#fff0f3] to-[#fde7f3] border-[#e6007e] shadow-xs ring-1 ring-[#e6007e]/30'
+                      : 'bg-white border-[#f0d8e2] hover:border-[#e6007e]/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xs font-extrabold text-[#8e004b] w-5 text-center shrink-0">
+                      #{rankNum}
+                    </span>
+
+                    <div className={`w-9 h-9 rounded-full ${member.avatarBg} font-bold text-xs flex items-center justify-center border shrink-0`}>
+                      {member.name.charAt(0)}
+                    </div>
+
+                    <div className="min-w-0 pr-1">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-xs font-bold text-[#26181c] truncate">
+                          {member.name}
+                        </h4>
+                        {member.isUser && (
+                          <span className="bg-[#e6007e] text-white text-[8px] font-extrabold uppercase px-1.5 py-0.2 rounded-md shrink-0">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-[#5a3f47] font-medium truncate">
+                        {member.tier} Tier • {member.bookings} Salon {member.bookings === 1 ? 'Visit' : 'Visits'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-extrabold text-[#e6007e] block">
+                      {member.activePoints.toLocaleString()} pts
+                    </span>
+                    <span className="text-[9px] text-emerald-600 font-semibold flex items-center justify-end gap-0.5">
+                      <span className="material-symbols-outlined text-[11px]">trending_up</span>
+                      Active
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* REFER A FRIEND FEATURE MODULE */}
       <section className="bg-gradient-to-br from-[#fff0f3] via-white to-[#fde7f3] rounded-[24px] p-5 border border-[#fcd5e8] shadow-md flex flex-col gap-4">
