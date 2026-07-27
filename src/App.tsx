@@ -120,10 +120,19 @@ export default function App() {
 
   const [bookings, setBookings] = useState<Booking[]>(() => {
     const saved = localStorage.getItem('nexora_bookings');
-    return saved ? JSON.parse(saved) : INITIAL_BOOKINGS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error('Failed to parse saved bookings:', e);
+      }
+    }
+    return INITIAL_BOOKINGS;
   });
 
   const [confirmedModalBooking, setConfirmedModalBooking] = useState<Booking | null>(null);
+  const [initialBookingIdForBookings, setInitialBookingIdForBookings] = useState<string | undefined>(undefined);
 
   // Notification States
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
@@ -287,12 +296,6 @@ export default function App() {
     if (status === 'CONFIRMED') {
       setConfirmedModalBooking(newBooking);
 
-      // Simulate sending WhatsApp confirmation
-      setTimeout(() => {
-        console.log(`Sending WhatsApp confirmation to user for booking: ${newBooking.id}`);
-        alert(`WhatsApp Notification: Your booking at ${newBooking.salonName} is confirmed! (Booking ID: ${newBooking.id})`);
-      }, 500);
-
       // Auto-schedule preview push notification for new booking after 1.5 seconds
       setTimeout(() => {
         triggerPushNotificationForBooking(newBooking.id);
@@ -424,6 +427,22 @@ export default function App() {
         onNavigate={(screen) => setCurrentScreen(screen)}
       />
 
+      {/* Booking Confirmation Modal overlay when booking succeeds */}
+      {confirmedModalBooking && (
+        <BookingConfirmationModal
+          booking={confirmedModalBooking}
+          onViewBookings={(bookingId) => {
+            setInitialBookingIdForBookings(bookingId || confirmedModalBooking.id);
+            setConfirmedModalBooking(null);
+            setCurrentScreen('bookings');
+          }}
+          onClose={() => {
+            setConfirmedModalBooking(null);
+            setCurrentScreen('home');
+          }}
+        />
+      )}
+
       {/* Render Header for main views (outside max-w-md container for full viewport width) */}
       {currentScreen !== 'welcome' &&
         currentScreen !== 'splash' &&
@@ -473,6 +492,26 @@ export default function App() {
               onSelectSalon={handleSelectSalon}
               onNavigate={(s) => setCurrentScreen(s)}
               onOpenLocationSelector={() => setCurrentScreen('location-modal')}
+              onTestBooking={() => {
+                const dummyBooking: Booking = {
+                  id: '#NEX-' + Math.floor(10000 + Math.random() * 90000),
+                  salonId: salons[0]?.id || '1',
+                  salonName: salons[0]?.name || 'Glow & Grace Unisex Salon',
+                  salonImage: salons[0]?.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800',
+                  salonAddress: salons[0]?.address || 'Vaishali Nagar, Jaipur',
+                  services: [
+                    { name: "Women's Haircut", price: 799 },
+                    { name: 'Hair Spa & Polish', price: 999 },
+                  ],
+                  totalAmount: 1798,
+                  dateStr: 'Today, ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                  timeSlot: '04:30 PM',
+                  status: 'CONFIRMED',
+                  staffName: 'Priya Sharma',
+                  createdDate: new Date().toISOString(),
+                };
+                setConfirmedModalBooking(dummyBooking);
+              }}
             />
           )}
 
@@ -520,6 +559,7 @@ export default function App() {
               onTriggerTestNotification={triggerPushNotificationForBooking}
               onAddReview={handleAddReviewFromBooking}
               onMarkBookingReviewed={handleMarkBookingReviewed}
+              initialSelectedBookingId={initialBookingIdForBookings}
             />
           )}
 
@@ -599,21 +639,6 @@ export default function App() {
             bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'PENDING').length
           }
         />
-
-        {/* Confirmation Modal overlay when booking succeeds */}
-        {confirmedModalBooking && (
-          <BookingConfirmationModal
-            booking={confirmedModalBooking}
-            onViewBookings={() => {
-              setConfirmedModalBooking(null);
-              setCurrentScreen('bookings');
-            }}
-            onClose={() => {
-              setConfirmedModalBooking(null);
-              setCurrentScreen('home');
-            }}
-          />
-        )}
       </div>
     </div>
   );

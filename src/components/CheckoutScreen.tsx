@@ -93,56 +93,16 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   };
 
   const handlePayment = () => {
-    const advanceAmount = Math.round(totalPrice * 0.25);
-    
-    // 1. Create temporary 'payment_pending' booking
-    const pendingBooking = onConfirmBooking({
+    // Confirm booking seamlessly
+    onConfirmBooking({
       salon,
       services: selectedServices,
       totalAmount: totalPrice,
       dateStr: activeDateObj.fullDate,
       timeSlot: selectedTimeSlot,
       staffName: selectedStaff?.name,
-      status: 'payment_pending',
+      status: 'CONFIRMED',
     });
-
-    // 2. Simulate Razorpay
-    const opened = confirm('Opening Razorpay Checkout for ₹' + advanceAmount + '. Click OK to simulate payment or Cancel to close.');
-    
-    if (!opened) {
-       alert('Payment Not Completed\n\nYour booking is not confirmed because the 25% advance payment was not completed.');
-       return;
-    }
-
-    const isPaymentSuccessful = Math.random() > 0.1;
-
-    if (isPaymentSuccessful) {
-      console.log('Verifying Razorpay signature...');
-      const isSignatureVerified = confirm('Simulating Razorpay signature verification. Click OK to verify and confirm, or Cancel to fail.');
-      
-      if (isSignatureVerified) {
-        if (pendingBooking) {
-            alert('Payment successful! Thank you for your booking.');
-            onConfirmBooking({
-              salon,
-              services: selectedServices,
-              totalAmount: totalPrice,
-              dateStr: activeDateObj.fullDate,
-              timeSlot: selectedTimeSlot,
-              staffName: selectedStaff?.name,
-              status: 'CONFIRMED',
-              bookingId: pendingBooking.id
-            }, () => {
-                // This callback will be handled by App.tsx
-                console.log('Payment successful, navigating away');
-            });
-        }
-      } else {
-        alert('Payment Verification Failed\n\nYour booking has not been confirmed.');
-      }
-    } else {
-      alert('Payment Could Not Be Completed\n\nYour booking has not been confirmed.');
-    }
   };
 
   if (step === 2) {

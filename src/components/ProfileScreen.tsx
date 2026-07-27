@@ -251,9 +251,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     triggerToast('Profile updated successfully!');
   };
 
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
+
   // Referral and Profile Deep-Link generation
   const referralCode = `${name.toUpperCase().replace(/\s+/g, '')}150`;
   const profileDeepLink = `${window.location.origin}/?user=${encodeURIComponent(name)}&tier=Gold&ref=${referralCode}`;
+
+  const handleCopyProfileLink = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(profileDeepLink);
+    }
+    setIsCopiedLink(true);
+    triggerToast('Copied!');
+    setTimeout(() => {
+      setIsCopiedLink(false);
+    }, 2000);
+  };
 
   const handleShareProfile = async () => {
     const shareData = {
@@ -484,12 +497,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       />
       {/* Toast Notification Container */}
       {toast ? (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg flex items-center justify-between z-50 transition-all duration-300 transform translate-y-0 opacity-100 border border-[#e6007e]/30">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between z-[300] transition-all duration-300 transform translate-y-0 opacity-100 border border-[#e6007e]/30">
           <span className="font-semibold text-[13px] flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px] text-[#e6007e]">verified</span>
             {toast}
           </span>
-          <button onClick={() => setToast(null)} className="text-[11px] text-[#ffb0c8] font-bold uppercase">
+          <button onClick={() => setToast(null)} className="text-[11px] text-[#ffb0c8] font-bold uppercase cursor-pointer">
             Dismiss
           </button>
         </div>
@@ -585,7 +598,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Share Profile Banner Button */}
         <button
           onClick={() => setIsShareModalOpen(true)}
-          className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#fde7f3] via-[#fff0f2] to-[#fde7f3] hover:from-[#e6007e] hover:to-[#b90064] text-[#e6007e] hover:text-white border border-[#fcd5e8] font-bold text-xs flex items-center justify-between transition-all shadow-2xs active:scale-[0.99] cursor-pointer group"
+          className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#fde7f3] via-[#fff0f2] to-[#fde7f3] hover:from-[#e6007e] hover:to-[#b90064] text-[#e6007e] hover:text-white border border-[#fcd5e8] font-bold text-xs flex items-center justify-between transition-all shadow-2xs active:scale-[0.99] cursor-pointer group animate-pulse hover:animate-none ring-2 ring-[#e6007e]/25"
         >
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">ios_share</span>
@@ -1217,22 +1230,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </p>
 
           {/* Deep Link Input Field */}
-          <div className="w-full flex items-center bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl p-1.5 gap-2">
-            <span className="material-symbols-outlined text-[18px] text-[#8c7077] ml-2">link</span>
+          <div
+            onClick={handleCopyProfileLink}
+            className="w-full flex items-center bg-[#fcf9f8] hover:bg-[#fde7f3]/50 border border-[#e8e8e8] hover:border-[#fcd5e8] rounded-xl p-1.5 gap-2 cursor-pointer transition-all group"
+            title="Click to copy profile URL"
+          >
+            <span className="material-symbols-outlined text-[18px] text-[#8c7077] group-hover:text-[#e6007e] ml-2 transition-colors">link</span>
             <input
               type="text"
               readOnly
               value={profileDeepLink}
-              className="flex-1 text-[11px] font-mono text-[#26181c] bg-transparent focus:outline-none truncate"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyProfileLink();
+              }}
+              className="flex-1 text-[11px] font-mono text-[#26181c] bg-transparent focus:outline-none truncate cursor-pointer"
             />
             <button
-              onClick={() => {
-                navigator.clipboard?.writeText(profileDeepLink);
-                triggerToast('Deep-link copied to clipboard!');
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyProfileLink();
               }}
-              className="px-3 py-1.5 bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white font-bold text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap"
+              className={`px-3 py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                isCopiedLink
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white'
+              }`}
             >
-              Copy Link
+              <span className="material-symbols-outlined text-[14px]">
+                {isCopiedLink ? 'check' : 'content_copy'}
+              </span>
+              <span>{isCopiedLink ? 'Copied!' : 'Copy Link'}</span>
             </button>
           </div>
 

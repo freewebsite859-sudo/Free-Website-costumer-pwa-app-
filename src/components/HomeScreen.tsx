@@ -13,6 +13,7 @@ interface HomeScreenProps {
   onSelectSalon: (salon: Salon) => void;
   onNavigate: (screen: Screen) => void;
   onOpenLocationSelector: () => void;
+  onTestBooking?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -24,6 +25,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectSalon,
   onNavigate,
   onOpenLocationSelector,
+  onTestBooking,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -358,7 +360,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <span className="text-[12px] font-medium text-[#8c7077]">Current Location</span>
             <button
               onClick={onOpenLocationSelector}
-              className="flex items-center gap-1.5 group text-left transition-colors"
+              className="flex items-center gap-1.5 group text-left transition-colors cursor-pointer"
             >
               <span className="text-[17px] font-semibold text-[#26181c] group-hover:text-[#e6007e]">
                 {location.area}
@@ -368,6 +370,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </span>
             </button>
           </div>
+
+          {onTestBooking && (
+            <button
+              onClick={onTestBooking}
+              className="px-3 py-1.5 bg-[#fde7f3] hover:bg-[#e6007e] text-[#e6007e] hover:text-white border border-[#fcd5e8] text-[12px] font-bold rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              title="Test Booking Confirmation Modal"
+            >
+              <span className="material-symbols-outlined text-[16px]">verified</span>
+              <span>Test Booking</span>
+            </button>
+          )}
         </div>
 
         {/* Search Bar */}

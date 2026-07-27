@@ -3,7 +3,7 @@ import { Booking } from '../types';
 
 interface BookingConfirmationModalProps {
   booking: Booking;
-  onViewBookings: () => void;
+  onViewBookings: (bookingId?: string) => void;
   onClose: () => void;
 }
 
@@ -13,8 +13,24 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
   onClose,
 }) => {
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-5 animate-in fade-in max-w-md mx-auto">
-      <div className="bg-white rounded-[28px] p-6 w-full shadow-2xl flex flex-col items-center text-center animate-in zoom-in duration-300 border border-[#e8e8e8]">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-[28px] p-6 w-full max-w-md shadow-2xl flex flex-col items-center text-center animate-in zoom-in duration-300 border border-[#e8e8e8] my-auto max-h-[92vh] overflow-y-auto relative z-10"
+      >
+        {/* Close Button in top right */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#fff0f2] hover:bg-[#fde7f3] text-[#5a3f47] hover:text-[#26181c] flex items-center justify-center transition-colors cursor-pointer"
+          aria-label="Close"
+        >
+          <span className="material-symbols-outlined text-[20px]">close</span>
+        </button>
+
         {/* Success Icon Badge */}
         <div className="w-20 h-20 rounded-full bg-[#fde7f3] text-[#e6007e] flex items-center justify-center mb-4 shadow-inner relative">
           <div className="absolute inset-0 bg-[#e6007e]/20 rounded-full animate-ping opacity-75" />
@@ -74,11 +90,11 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
         {/* Actions */}
         <div className="w-full flex flex-col gap-2">
           <button
-            onClick={onViewBookings}
-            className="w-full h-[50px] bg-[#e6007e] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#e6007e]/25 active:scale-95 transition-all flex items-center justify-center gap-2"
+            onClick={() => onViewBookings(booking.id)}
+            className="w-full h-[50px] bg-[#e6007e] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#e6007e]/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]">event_note</span>
-            View My Bookings
+            <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+            View Booking Confirmation & Details
           </button>
 
           <button
