@@ -6,24 +6,47 @@ export interface SavedUpi {
   name: string;
   provider: string;
   isVerified: boolean;
+  isQrScanned?: boolean;
+  scannedAt?: string;
 }
 
 interface AddUpiModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpiAdded: (upi: SavedUpi) => void;
+  initialUpiInput?: string;
+  onOpenScanner?: () => void;
 }
 
 export const AddUpiModal: React.FC<AddUpiModalProps> = ({
   isOpen,
   onClose,
   onUpiAdded,
+  initialUpiInput = '',
+  onOpenScanner,
 }) => {
-  const [upiInput, setUpiInput] = useState('');
+  const [upiInput, setUpiInput] = useState(initialUpiInput);
   const [verifying, setVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [verifiedName, setVerifiedName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Update input when initialUpiInput changes
+  React.useEffect(() => {
+    if (initialUpiInput && isOpen) {
+      setUpiInput(initialUpiInput);
+      setErrorMessage('');
+      
+      // Auto-verify prefilled scanned QR code for quick linking
+      const prefix = initialUpiInput.split('@')[0].replace(/[\._-]/g, ' ');
+      const formattedName = prefix
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      setVerifiedName(formattedName.length > 2 ? formattedName : 'Verified Merchant / User');
+      setIsVerified(true);
+    }
+  }, [initialUpiInput, isOpen]);
 
   if (!isOpen) return null;
 
@@ -105,9 +128,21 @@ export const AddUpiModal: React.FC<AddUpiModalProps> = ({
 
           {/* Input Group */}
           <div className="space-y-2 mb-6">
-            <label className="block text-[13px] font-medium text-[#5a3f47] ml-1">
-              UPI ID
-            </label>
+            <div className="flex items-center justify-between ml-1">
+              <label className="block text-[13px] font-medium text-[#5a3f47]">
+                UPI ID
+              </label>
+              {onOpenScanner && (
+                <button
+                  type="button"
+                  onClick={onOpenScanner}
+                  className="text-[12px] font-bold text-[#e6007e] hover:text-[#b90064] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
+                  <span>Scan QR Code</span>
+                </button>
+              )}
+            </div>
             <div className="relative flex items-center">
               <input
                 type="text"

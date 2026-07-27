@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AVATAR_URL } from '../data/mockData';
 import { Screen, UserLocation, Booking, Address } from '../types';
 import { AddCardModal, SavedCard } from './AddCardModal';
 import { AddUpiModal, SavedUpi } from './AddUpiModal';
+import { ScanUpiQrModal } from './ScanUpiQrModal';
+import { RecentlyScannedUpiList } from './RecentlyScannedUpiList';
 
 interface ProfileScreenProps {
   location: UserLocation;
@@ -115,6 +117,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isPaymentMethodsOpen, setIsPaymentMethodsOpen] = useState(false);
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [isAddUpiOpen, setIsAddUpiOpen] = useState(false);
+  const [isScanQrOpen, setIsScanQrOpen] = useState(false);
+  const [prefilledUpiInput, setPrefilledUpiInput] = useState<string>('');
 
   const [savedCards, setSavedCards] = useState<SavedCard[]>(() => {
     const saved = localStorage.getItem('nexora_saved_cards');
@@ -144,11 +148,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (saved) return JSON.parse(saved);
     return [
       {
+        id: 'upi-qr-1',
+        upiId: 'amelia.stratton@okicici',
+        name: 'Amelia Stratton',
+        provider: 'okicici',
+        isVerified: true,
+        isQrScanned: true,
+        scannedAt: 'Today, 2:15 PM',
+      },
+      {
+        id: 'upi-qr-2',
+        upiId: 'nexora.salon@paytm',
+        name: 'Nexora Salon Payments',
+        provider: 'paytm',
+        isVerified: true,
+        isQrScanned: true,
+        scannedAt: 'Yesterday',
+      },
+      {
         id: 'upi-1',
         upiId: 'amelia.strat@okaxis',
         name: 'Amelia Stratton',
         provider: 'okaxis',
         isVerified: true,
+        isQrScanned: false,
       },
       {
         id: 'upi-2',
@@ -156,9 +179,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         name: 'Amelia Stratton',
         provider: 'paytm',
         isVerified: true,
+        isQrScanned: false,
       },
     ];
   });
+
+  // Reload saved upis when payment methods open
+  useEffect(() => {
+    if (isPaymentMethodsOpen) {
+      const saved = localStorage.getItem('nexora_saved_upis');
+      if (saved) {
+        try {
+          setSavedUpis(JSON.parse(saved));
+        } catch (e) {
+          console.warn('Failed to parse saved upis:', e);
+        }
+      }
+    }
+  }, [isPaymentMethodsOpen]);
 
   const handleCardAdded = (newCard: SavedCard) => {
     const updated = [newCard, ...savedCards];
@@ -2347,14 +2385,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <p className="text-[14px] font-bold text-[#26181c]">Linked UPI IDs</p>
               <p className="text-[11px] text-[#594047]">Google Pay, PhonePe, Paytm & BHIM</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAddUpiOpen(true)}
-              className="px-3 py-1.5 bg-[#8e004b] hover:bg-[#58002c] text-white text-[12px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
-              <span>+ Add UPI ID</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsScanQrOpen(true)}
+                className="px-2.5 py-1.5 bg-[#e6007e] hover:bg-[#b90064] text-white text-[12px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                title="Scan UPI QR Code using camera"
+              >
+                <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
+                <span>Scan QR</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddUpiOpen(true)}
+                className="px-2.5 py-1.5 bg-[#8e004b] hover:bg-[#58002c] text-white text-[12px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>Add UPI</span>
+              </button>
+            </div>
           </div>
 
           {/* UPI List */}
@@ -2377,6 +2426,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           Verified
                         </span>
                       )}
+                      {upi.isQrScanned && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#fde7f3] text-[#e6007e] text-[9px] font-bold uppercase flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[10px]">qr_code_2</span>
+                          QR
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-[#594047]">{upi.name}</p>
                   </div>
@@ -2393,21 +2448,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             ))}
           </div>
 
-          {/* Prompt banner to test add UPI */}
-          <div className="p-3.5 rounded-2xl bg-[#fff0f2] border border-[#fcd5e8] flex items-center justify-between gap-2 mt-1">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#e6007e] text-[20px]">qr_code_2</span>
+          {/* Recently Scanned List Component */}
+          <RecentlyScannedUpiList onDeleteUpi={handleDeleteUpi} />
+
+          {/* Dedicated Scan UPI QR Banner */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#ffe8ed] to-[#fde7f3] border border-[#fcd5e8] flex items-center justify-between gap-2 mt-1 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#e6007e] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <span className="material-symbols-outlined text-[22px]">qr_code_scanner</span>
+              </div>
               <div>
-                <p className="text-[12px] font-bold text-[#26181c]">Link New UPI ID</p>
-                <p className="text-[11px] text-[#594047]">Verify ID and link for 1-click payments</p>
+                <p className="text-[13px] font-bold text-[#26181c]">Scan UPI QR Code</p>
+                <p className="text-[11px] text-[#594047]">Use camera or gallery QR to link instantly</p>
               </div>
             </div>
             <button
               type="button"
-              onClick={() => setIsAddUpiOpen(true)}
-              className="px-3 py-1.5 bg-[#8e004b] text-white text-[11px] font-bold rounded-xl shrink-0 cursor-pointer hover:bg-[#58002c]"
+              onClick={() => setIsScanQrOpen(true)}
+              className="px-3 py-2 bg-[#e6007e] text-white text-[12px] font-bold rounded-xl shrink-0 cursor-pointer hover:bg-[#b90064] shadow-xs flex items-center gap-1 active:scale-95 transition-all"
             >
-              Add UPI
+              <span className="material-symbols-outlined text-[16px]">photo_camera</span>
+              <span>Scan QR</span>
             </button>
           </div>
         </div>
@@ -2423,8 +2484,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* Add UPI Modal */}
       <AddUpiModal
         isOpen={isAddUpiOpen}
-        onClose={() => setIsAddUpiOpen(false)}
+        onClose={() => {
+          setIsAddUpiOpen(false);
+          setPrefilledUpiInput('');
+        }}
         onUpiAdded={handleUpiAdded}
+        initialUpiInput={prefilledUpiInput}
+        onOpenScanner={() => {
+          setIsAddUpiOpen(false);
+          setIsScanQrOpen(true);
+        }}
+      />
+
+      {/* Scan UPI QR Code Modal */}
+      <ScanUpiQrModal
+        isOpen={isScanQrOpen}
+        onClose={() => setIsScanQrOpen(false)}
+        onUpiScanned={handleUpiAdded}
+        onUpiParsed={(scannedUpiId) => {
+          setPrefilledUpiInput(scannedUpiId);
+          setIsScanQrOpen(false);
+          setIsAddUpiOpen(true);
+          triggerToast(`Parsed QR: ${scannedUpiId}`);
+        }}
       />
 
     </div>

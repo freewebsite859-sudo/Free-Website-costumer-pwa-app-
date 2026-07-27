@@ -27,6 +27,8 @@ import { NotificationOverlay } from './components/NotificationOverlay';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { SignUpScreen } from './components/auth/SignUpScreen';
+import { ScanUpiQrModal } from './components/ScanUpiQrModal';
+import { AddUpiModal, SavedUpi } from './components/AddUpiModal';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -159,6 +161,11 @@ export default function App() {
   const [profileAvatar, setProfileAvatar] = useState<string>(() => {
     return localStorage.getItem('profile_avatar') || '';
   });
+
+  // Global UPI QR Scanner States
+  const [isGlobalScanQrOpen, setIsGlobalScanQrOpen] = useState(false);
+  const [isGlobalAddUpiOpen, setIsGlobalAddUpiOpen] = useState(false);
+  const [globalPrefilledUpi, setGlobalPrefilledUpi] = useState('');
 
   // Sync state to localStorage
   useEffect(() => {
@@ -463,6 +470,7 @@ export default function App() {
             }}
             unreadNotificationCount={unreadCount}
             onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
+            onOpenQrScanner={() => setIsGlobalScanQrOpen(true)}
             userAvatar={profileAvatar}
           />
         )}
@@ -497,18 +505,17 @@ export default function App() {
                   id: '#NEX-' + Math.floor(10000 + Math.random() * 90000),
                   salonId: salons[0]?.id || '1',
                   salonName: salons[0]?.name || 'Glow & Grace Unisex Salon',
-                  salonImage: salons[0]?.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800',
-                  salonAddress: salons[0]?.address || 'Vaishali Nagar, Jaipur',
+                  locationArea: salons[0]?.area || 'Vaishali Nagar, Jaipur',
                   services: [
-                    { name: "Women's Haircut", price: 799 },
-                    { name: 'Hair Spa & Polish', price: 999 },
+                    { id: 's1', name: "Women's Haircut", price: 799, durationMinutes: 45, category: 'HAIR' },
+                    { id: 's2', name: 'Hair Spa & Polish', price: 999, durationMinutes: 60, category: 'HAIR' },
                   ],
                   totalAmount: 1798,
                   dateStr: 'Today, ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                   timeSlot: '04:30 PM',
                   status: 'CONFIRMED',
                   staffName: 'Priya Sharma',
-                  createdDate: new Date().toISOString(),
+                  createdTime: Date.now(),
                 };
                 setConfirmedModalBooking(dummyBooking);
               }}
@@ -640,6 +647,46 @@ export default function App() {
           }
         />
       </div>
+
+      {/* Global Scan UPI QR Code Modal */}
+      <ScanUpiQrModal
+        isOpen={isGlobalScanQrOpen}
+        onClose={() => setIsGlobalScanQrOpen(false)}
+        onUpiScanned={(scannedUpi) => {
+          const saved = localStorage.getItem('nexora_saved_upis');
+          const list: SavedUpi[] = saved ? JSON.parse(saved) : [];
+          localStorage.setItem('nexora_saved_upis', JSON.stringify([scannedUpi, ...list]));
+          setIsGlobalScanQrOpen(false);
+          setCurrentScreen('profile');
+        }}
+        onUpiParsed={(parsedUpiId) => {
+          setGlobalPrefilledUpi(parsedUpiId);
+          setIsGlobalScanQrOpen(false);
+          setIsGlobalAddUpiOpen(true);
+        }}
+      />
+
+      {/* Global Add UPI Modal for QR prefill */}
+      <AddUpiModal
+        isOpen={isGlobalAddUpiOpen}
+        onClose={() => {
+          setIsGlobalAddUpiOpen(false);
+          setGlobalPrefilledUpi('');
+        }}
+        initialUpiInput={globalPrefilledUpi}
+        onOpenScanner={() => {
+          setIsGlobalAddUpiOpen(false);
+          setIsGlobalScanQrOpen(true);
+        }}
+        onUpiAdded={(newUpi) => {
+          const saved = localStorage.getItem('nexora_saved_upis');
+          const list: SavedUpi[] = saved ? JSON.parse(saved) : [];
+          localStorage.setItem('nexora_saved_upis', JSON.stringify([newUpi, ...list]));
+          setIsGlobalAddUpiOpen(false);
+          setGlobalPrefilledUpi('');
+          setCurrentScreen('profile');
+        }}
+      />
     </div>
   );
 }
