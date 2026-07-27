@@ -20,6 +20,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('Hair spa');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('All');
+  const [selectedMinPrice, setSelectedMinPrice] = useState<number>(0);
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number>(5000);
   const [selectedMinRating, setSelectedMinRating] = useState<number>(0);
   const [selectedDistance, setSelectedDistance] = useState<number>(10);
@@ -33,7 +34,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
       setIsLoading(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedGenderFilter, selectedMaxPrice, selectedMinRating, selectedDistance]);
+  }, [searchQuery, selectedGenderFilter, selectedMinPrice, selectedMaxPrice, selectedMinRating, selectedDistance]);
 
   const filteredSalons = salons.filter((s) => {
     const q = searchQuery.toLowerCase();
@@ -49,7 +50,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
       !s.genderCategory ||
       s.genderCategory === selectedGenderFilter;
 
-    const matchesPrice = s.startingPrice <= selectedMaxPrice;
+    const matchesPrice = s.startingPrice >= selectedMinPrice && s.startingPrice <= selectedMaxPrice;
     const matchesRating = s.rating >= selectedMinRating;
     const matchesDistance = s.distanceKm <= selectedDistance;
 
@@ -122,19 +123,68 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                 </div>
 
                 <div>
-                  <p className="text-[12px] font-bold text-[#5a3f47] mb-2 flex justify-between">
-                    <span>Max Price</span>
-                    <span>₹{selectedMaxPrice}</span>
-                  </p>
-                  <input
-                    type="range"
-                    min="500"
-                    max="5000"
-                    step="500"
-                    value={selectedMaxPrice}
-                    onChange={(e) => setSelectedMaxPrice(Number(e.target.value))}
-                    className="w-full accent-[#e6007e]"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[12px] font-bold text-[#5a3f47]">Price Range</p>
+                    <p className="text-[12px] font-bold text-[#e6007e]">₹{selectedMinPrice} - ₹{selectedMaxPrice}</p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <p className="text-[10px] text-[#8c7077] mb-1">Minimum Price</p>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2000"
+                        step="100"
+                        value={selectedMinPrice}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSelectedMinPrice(val);
+                          if (val > selectedMaxPrice) setSelectedMaxPrice(val);
+                        }}
+                        className="w-full h-1.5 bg-[#f6dce2] rounded-lg appearance-none cursor-pointer accent-[#e6007e]"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#8c7077] mb-1">Maximum Price</p>
+                      <input
+                        type="range"
+                        min="500"
+                        max="10000"
+                        step="500"
+                        value={selectedMaxPrice}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSelectedMaxPrice(val);
+                          if (val < selectedMinPrice) setSelectedMinPrice(val);
+                        }}
+                        className="w-full h-1.5 bg-[#f6dce2] rounded-lg appearance-none cursor-pointer accent-[#e6007e]"
+                      />
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      {[
+                        { label: 'Budget', min: 0, max: 1000 },
+                        { label: 'Mid-Range', min: 1000, max: 3000 },
+                        { label: 'Luxury', min: 3000, max: 10000 },
+                      ].map((tier) => (
+                        <button
+                          key={tier.label}
+                          onClick={() => {
+                            setSelectedMinPrice(tier.min);
+                            setSelectedMaxPrice(tier.max);
+                          }}
+                          className={`flex-1 py-2 rounded-xl text-[11px] font-bold transition-all border ${
+                            selectedMinPrice === tier.min && selectedMaxPrice === tier.max
+                              ? 'bg-[#26181c] text-white border-[#26181c]'
+                              : 'bg-white text-[#5a3f47] border-[#e8e8e8]'
+                          }`}
+                        >
+                          {tier.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-4">
@@ -177,6 +227,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                 <button
                   onClick={() => {
                     setSelectedGenderFilter('All');
+                    setSelectedMinPrice(0);
                     setSelectedMaxPrice(5000);
                     setSelectedMinRating(0);
                     setSelectedDistance(10);
@@ -302,6 +353,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
               onClick={() => {
                 setSearchQuery('');
                 setSelectedGenderFilter('All');
+                setSelectedMinPrice(0);
                 setSelectedMaxPrice(5000);
                 setSelectedMinRating(0);
                 setSelectedDistance(10);

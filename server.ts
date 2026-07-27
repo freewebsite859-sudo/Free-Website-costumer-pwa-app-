@@ -1,10 +1,7 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function startServer() {
   const app = express();
@@ -20,15 +17,17 @@ async function startServer() {
       return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
     }
 
-    const ai = new GoogleGenAI({ 
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: {
-            headers: { 'User-Agent': 'aistudio-build' }
-        }
-    });
-
     try {
       const prompt = `Analyze this user's appointment history and suggest 3 optimal times for a next appointment. History: ${JSON.stringify(appointmentHistory)}`;
+      
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
       
       const response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
