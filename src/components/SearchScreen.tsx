@@ -58,7 +58,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   });
 
   return (
-    <div className="flex flex-col w-full gap-5 pb-32 pt-2">
+    <div className="flex flex-col w-full max-w-md mx-auto gap-5 pb-32 pt-2">
       {/* Search Input Bar */}
       <div className="flex flex-col gap-3">
         <div className="relative w-full">
@@ -377,7 +377,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
           setShowMapView(true);
           setActiveSalonOnMap(filteredSalons[0] || salons[0]);
         }}
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 h-12 px-6 bg-[#3c2c31] text-white rounded-full shadow-2xl flex items-center gap-2 text-[14px] font-bold z-40 cursor-pointer select-none"
+        className="fixed bottom-32 mb-safe left-1/2 -translate-x-1/2 h-12 px-6 bg-[#3c2c31] text-white rounded-full shadow-2xl flex items-center gap-2 text-[14px] font-bold z-40 cursor-pointer select-none"
       >
         <span className="material-symbols-outlined text-[20px]">map</span>
         Map View

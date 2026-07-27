@@ -604,7 +604,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full gap-5 pb-28 pt-2 animate-in fade-in relative">
+    <div className="flex flex-col w-full max-w-md mx-auto gap-5 pb-40 pt-2 animate-in fade-in relative">
       <input
         type="file"
         id="avatar-upload-file-input"
@@ -614,7 +614,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       />
       {/* Toast Notification Container */}
       {toast ? (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between z-[300] transition-all duration-300 transform translate-y-0 opacity-100 border border-[#e6007e]/30">
+        <div className="fixed bottom-32 mb-safe left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between z-[300] transition-all duration-300 transform translate-y-0 opacity-100 border border-[#e6007e]/30">
           <span className="font-semibold text-[13px] flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px] text-[#e6007e]">verified</span>
             {toast}

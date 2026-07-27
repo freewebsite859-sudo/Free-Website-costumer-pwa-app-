@@ -91,7 +91,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full pb-28 pt-2 animate-in fade-in">
+    <div className="flex flex-col w-full max-w-md mx-auto pb-40 pt-2 animate-in fade-in">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -347,7 +347,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
 
       {/* Snackbar with Undo */}
       {snackbar.visible && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-[#26181c] text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-[#e6007e]/40 animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-32 mb-safe left-1/2 -translate-x-1/2 z-50 bg-[#26181c] text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-[#e6007e]/40 animate-in fade-in slide-in-from-bottom-4">
           <span className="text-[13px] font-medium">{snackbar.message}</span>
           <button
             onClick={handleUndo}

@@ -274,7 +274,7 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
             </section>
 
             {/* Bottom Sticky Action */}
-            <div className="fixed bottom-0 left-0 right-0 p-5 bg-white/90 backdrop-blur-xl border-t border-[#e8e8e8] pb-safe z-40 max-w-md mx-auto">
+            <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe z-40 max-w-md mx-auto shadow-[0_-8px_30px_rgba(0,0,0,0.08)] mb-safe">
               <button
                 onClick={handleConfirmLocation}
                 className="w-full h-[52px] bg-[#e6007e] text-white text-[15px] font-semibold rounded-2xl shadow-lg shadow-[#e6007e]/20 active:scale-95 transition-all flex items-center justify-center gap-2"

@@ -298,7 +298,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     : serviceReviews.filter((r) => r.serviceName === selectedServiceFilter);
 
   return (
-    <div className="flex flex-col w-full relative pb-32">
+    <div className="flex flex-col w-full max-w-md mx-auto relative pb-48">
       {/* Service Review Modal */}
       <ServiceReviewModal
         isOpen={isReviewModalOpen}
@@ -1117,7 +1117,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
       </div>
 
       {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white/90 backdrop-blur-2xl border-t border-[#e8e8e8] pb-safe z-50 max-w-md mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe z-50 max-w-md mx-auto shadow-[0_-8px_30px_rgba(0,0,0,0.08)] mb-safe">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
             <span className="text-[11px] text-[#5a3f47] font-medium">Selected ({selectedServices.length} items)</span>

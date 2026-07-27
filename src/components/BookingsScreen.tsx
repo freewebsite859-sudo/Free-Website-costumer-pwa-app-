@@ -48,7 +48,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     : salons[0];
 
   return (
-    <div className="flex flex-col w-full gap-5 pb-28 pt-2">
+    <div className="flex flex-col w-full max-w-md mx-auto gap-5 pb-40 pt-2">
       {/* Segment Tabs */}
       <div className="flex items-center w-full bg-[#ffe8ed] rounded-2xl p-1 shadow-sm mt-2">
         <button

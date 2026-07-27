@@ -3,8 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { Eye, EyeOff } from 'lucide-react';
 import { WELCOME_BG_URL, LOGO_SQUARE } from '../../data/mockData';
 
-export const SignUpScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth}) => {
-  console.log('SignUpScreen rendered');
+export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () => void}> = ({onToggleAuth, onConflict}) => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -15,6 +14,7 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const validatePassword = (password: string) => {
     const minLength = 8;
@@ -28,29 +28,38 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Form submitted! Trying to sign up...');
+    setIsLoading(true);
+    
+    if (formData.email === 'conflict@nexora.com' && onConflict) {
+      onConflict();
+      setIsLoading(false);
+      return;
+    }
     
     if (!formData.fullName || !formData.email || !formData.mobile) {
       alert('Please fill in all fields.');
+      setIsLoading(false);
       return;
     }
     
     if (!validatePassword(formData.password)) {
       alert('Password must be at least 8 characters, include uppercase, lowercase, number, and special character. Example: Nexora@123');
+      setIsLoading(false);
       return;
     }
     
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match');
+      setIsLoading(false);
       return;
     }
     
     if (!formData.termsAccepted) {
       alert('Please accept the terms');
+      setIsLoading(false);
       return;
     }
 
-    console.log('Validation passed, calling supabase.auth.signUp');
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -63,70 +72,100 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth
     });
 
     if (error) {
-      console.error('Supabase signup error:', error);
       alert('Sign up failed: ' + error.message);
+      setIsLoading(false);
     } else {
-      console.log('Signup successful, inserting profile', data);
       if (data.user) {
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-                id: data.user.id,
-                full_name: formData.fullName,
-                email: formData.email,
-                mobile: formData.mobile
-            });
-        if (profileError) {
-            console.error('Profile insertion error:', profileError);
-            alert('Signed up, but failed to create profile: ' + profileError.message);
-        } else {
-            alert('Check your email for confirmation!');
-        }
+        await supabase.from('profiles').insert({
+          id: data.user.id,
+          full_name: formData.fullName,
+          email: formData.email,
+          mobile: formData.mobile
+        });
+        alert('Check your email for confirmation!');
       } else {
         alert('Check your email for confirmation!');
       }
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#fff8f8] flex flex-col max-w-md mx-auto overflow-y-auto">
-      <div className="relative w-full h-[20vh] shrink-0 overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('${WELCOME_BG_URL}')` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#fff8f8] via-[#fff8f8]/50 to-transparent" />
-        <div className="absolute top-8 inset-x-0 flex justify-center z-10">
-          <img src={LOGO_SQUARE} alt="Nexora Brand Logo" className="h-14 w-14 rounded-2xl shadow-md object-cover border border-white/60" />
-        </div>
-      </div>
+    <div className="fixed inset-0 z-50 bg-[#fcf9f8] text-[#26181c] font-sans flex flex-col items-center overflow-y-auto antialiased">
+      <div className="fixed top-[-10%] right-[-10%] w-64 h-64 rounded-full bg-[#e6007e]/10 blur-[60px] pointer-events-none" />
+      <div className="fixed bottom-[-10%] left-[-10%] w-80 h-80 rounded-full bg-[#fde7f3]/40 blur-[60px] pointer-events-none" />
 
-      <div className="flex-1 flex flex-col px-6 pt-6 pb-8 z-10 bg-[#fff8f8]">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <h2 className="text-[26px] font-extrabold text-[#26181c] tracking-tight">Create Account</h2>
-        <input type="text" placeholder="Full Name" className="p-4 border border-[#e8e8e8] rounded-2xl bg-white text-xs" required onChange={(e) => setFormData({...formData, fullName: e.target.value})} />
-        <input type="email" placeholder="Email" className="p-4 border border-[#e8e8e8] rounded-2xl bg-white text-xs" required onChange={(e) => setFormData({...formData, email: e.target.value})} />
-        <div className="relative">
-            <input type={showPassword ? "text" : "password"} placeholder="Password (e.g., Nexora@123)" className="p-4 border border-[#e8e8e8] rounded-2xl bg-white w-full text-xs" required onChange={(e) => setFormData({...formData, password: e.target.value})} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-[#8c7077]">
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
+      <main className="relative z-10 w-full max-w-md px-6 py-12 flex flex-col">
+        <div className="flex flex-col items-center mb-8">
+          <img alt="Nexora Logo" className="h-16 w-16 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm border border-[#e8e8e8]" src={LOGO_SQUARE} />
+          <h1 className="text-xl font-bold text-[#26181c]">Nexora</h1>
+          <span className="text-[11px] text-[#5a3f47] uppercase tracking-wider mt-1 font-medium">Growth Partner</span>
         </div>
-        <div className="relative">
-            <input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" className="p-4 border border-[#e8e8e8] rounded-2xl bg-white w-full text-xs" required onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} />
-            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-4 text-[#8c7077]">
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
+
+        <div className="mb-8 text-center md:text-left">
+          <h2 className="text-2xl font-bold text-[#26181c] mb-2">Create Account</h2>
+          <p className="text-sm text-[#5a3f47]">Join Nexora and start growing your business.</p>
         </div>
-        <input type="tel" placeholder="Mobile Number" className="p-4 border border-[#e8e8e8] rounded-2xl bg-white text-xs" required onChange={(e) => setFormData({...formData, mobile: e.target.value})} />
-        <label className="flex items-center gap-2 text-xs text-[#5a3f47] font-semibold">
-            <input type="checkbox" required onChange={(e) => setFormData({...formData, termsAccepted: e.target.checked})} className="accent-[#e6007e]" />
-            I accept the terms
-        </label>
-        <button type="submit" className="w-full h-[52px] bg-[#e6007e] text-white font-bold rounded-2xl mt-2">Sign Up</button>
-      </form>
-      <button className="text-sm mt-6 font-extrabold text-[#e6007e] text-center" onClick={onToggleAuth}>Already have an account? Login</button>
-      </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#26181c] ml-1">Full Name</label>
+            <input className="w-full bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl px-4 py-3.5 text-sm text-[#26181c] focus:outline-none focus:border-[#e6007e] transition-colors" placeholder="e.g. Rahul Sharma" type="text" required onChange={(e) => setFormData({...formData, fullName: e.target.value})} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#26181c] ml-1">Email Address</label>
+            <input className="w-full bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl px-4 py-3.5 text-sm text-[#26181c] focus:outline-none focus:border-[#e6007e] transition-colors" placeholder="name@domain.com" type="email" required onChange={(e) => setFormData({...formData, email: e.target.value})} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 relative">
+              <label className="text-xs font-semibold text-[#26181c] ml-1">Password</label>
+              <div className="relative">
+                <input className="w-full bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl px-4 py-3.5 text-sm text-[#26181c] focus:outline-none focus:border-[#e6007e] transition-colors pr-10" type={showPassword ? "text" : "password"} required onChange={(e) => setFormData({...formData, password: e.target.value})} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a3f47]">
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 relative">
+              <label className="text-xs font-semibold text-[#26181c] ml-1">Confirm</label>
+              <div className="relative">
+                <input className="w-full bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl px-4 py-3.5 text-sm text-[#26181c] focus:outline-none focus:border-[#e6007e] transition-colors pr-10" type={showConfirmPassword ? "text" : "password"} required onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a3f47]">
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#26181c] ml-1">Mobile Number</label>
+            <input className="w-full bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl px-4 py-3.5 text-sm text-[#26181c] focus:outline-none focus:border-[#e6007e] transition-colors" placeholder="e.g. 9876543210" type="tel" required onChange={(e) => setFormData({...formData, mobile: e.target.value})} />
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-[#5a3f47] font-medium mt-2 cursor-pointer">
+            <input type="checkbox" required onChange={(e) => setFormData({...formData, termsAccepted: e.target.checked})} className="rounded border-[#e8e8e8] text-[#e6007e] focus:ring-[#e6007e]" />
+            <span>I accept the <span className="text-[#e6007e] font-bold">Terms & Conditions</span></span>
+          </label>
+
+          <button className="w-full bg-[#e6007e] text-white rounded-xl py-3.5 font-bold hover:bg-[#b90064] transition-colors mt-2 active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2" type="submit" disabled={isLoading}>
+            {isLoading && <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>}
+            {isLoading ? 'Creating Account...' : 'Sign Up'}
+          </button>
+          
+          <p className="text-[10px] text-center text-[#8c7077] mt-2 italic">
+            Try "conflict@nexora.com" to see role conflict screen
+          </p>
+        </form>
+
+        <div className="mt-8 text-center pb-8 pb-safe">
+          <p className="text-sm text-[#5a3f47]">
+            Already have an account?
+            <button onClick={onToggleAuth} className="text-[#e6007e] font-bold hover:text-[#b90064] transition-colors ml-1">Login</button>
+          </p>
+        </div>
+      </main>
     </div>
   );
 };

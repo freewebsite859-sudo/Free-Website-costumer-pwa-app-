@@ -107,10 +107,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full pb-32 animate-in fade-in duration-200">
+    <div className="flex flex-col w-full max-w-md mx-auto pb-32 animate-in fade-in duration-200">
       {/* Toast popup */}
       {toast && (
-        <div className="fixed bottom-24 inset-x-4 z-[100] bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-32 mb-safe inset-x-4 z-[100] bg-[#26181c] text-white px-4 py-3 rounded-xl shadow-lg border border-[#e0bec6]/30 text-xs font-semibold flex items-center gap-2 max-w-sm mx-auto animate-in slide-in-from-bottom duration-200">
           <span className="material-symbols-outlined text-[#e6007e] text-lg">check_circle</span>
           <span>{toast}</span>
         </div>

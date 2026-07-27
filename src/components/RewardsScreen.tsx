@@ -334,7 +334,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
   };
 
   return (
-    <div className="flex flex-col w-full gap-6 pb-28 pt-2 animate-in fade-in relative">
+    <div className="flex flex-col w-full max-w-md mx-auto gap-6 pb-40 pt-2 animate-in fade-in relative">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-[#26181c] text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 animate-in slide-in-from-top duration-300 max-w-[90vw]">

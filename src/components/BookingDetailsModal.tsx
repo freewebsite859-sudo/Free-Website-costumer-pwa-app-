@@ -80,7 +80,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         </div>
       )}
 
-      <div className="bg-[#fff8f8] w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl relative border border-[#f6dce2]">
+      <div className="bg-[#fff8f8] w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl relative border border-[#f6dce2]">
         {/* Header */}
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md px-4 py-3 border-b border-[#e8e8e8] flex items-center justify-between">
           <div className="flex items-center gap-3">

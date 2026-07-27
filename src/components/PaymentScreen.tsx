@@ -209,8 +209,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
       </main>
 
       {!isLoading && (
-        <footer className="fixed bottom-0 inset-x-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-[#e8e8e8] pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)] max-w-md mx-auto">
-          <div className="p-5 flex flex-col gap-4">
+        <footer className="fixed bottom-0 inset-x-0 z-[100] bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe shadow-[0_-8px_30px_rgba(0,0,0,0.08)] max-w-md mx-auto mb-safe">
+          <div className="pt-5 pb-8 p-5 flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <span className="text-[13px] font-medium text-[#5a3f47]">Total Amount</span>
               <span className="text-[18px] font-semibold text-[#26181c]">₹{finalTotal}</span>

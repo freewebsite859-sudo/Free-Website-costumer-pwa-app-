@@ -2,6 +2,8 @@ import React from 'react';
 import { Screen } from '../types';
 import { LOGO_URL, AVATAR_URL } from '../data/mockData';
 
+import { OfflineSyncStatus } from './OfflineSyncStatus';
+
 interface HeaderProps {
   currentScreen: Screen;
   title?: string;
@@ -12,6 +14,7 @@ interface HeaderProps {
   onOpenNotifications?: () => void;
   onOpenQrScanner?: () => void;
   userAvatar?: string;
+  isSyncing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,34 +27,43 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNotifications,
   onOpenQrScanner,
   userAvatar,
+  isSyncing = false,
 }) => {
   return (
     <header className="fixed top-0 w-full z-50 bg-white/85 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe">
       <div className="flex items-center justify-between h-16 px-4 max-w-md mx-auto">
-        <div className="flex items-center gap-2.5">
-          {showBack ? (
+        <div className="flex items-center gap-1.5 overflow-hidden">
+          {showBack && (
             <button
               onClick={onBack}
               aria-label="Back"
-              className="w-9 h-9 -ml-1 flex items-center justify-center text-[#26181c] hover:text-[#e6007e] transition-colors active:scale-95"
+              className="w-9 h-9 -ml-1 flex items-center justify-center text-[#26181c] hover:text-[#e6007e] transition-colors active:scale-95 shrink-0"
             >
               <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
             </button>
-          ) : currentScreen === 'home' ? (
-            <div className="flex items-center gap-2">
+          )}
+
+          {currentScreen === 'home' && !showBack ? (
+            <div className="flex items-center gap-2 overflow-hidden">
               <img
                 src={LOGO_URL}
                 alt="Nexora Brand Logo"
-                className="h-7 w-auto object-contain"
+                className="h-7 w-auto object-contain shrink-0"
               />
-              <span className="font-semibold text-[17px] text-[#26181c] tracking-tight">
-                {title}
-              </span>
+              <div className="flex flex-col overflow-hidden">
+                <span className="font-semibold text-[17px] text-[#26181c] tracking-tight leading-tight truncate">
+                  {title}
+                </span>
+                <OfflineSyncStatus isSyncing={isSyncing} />
+              </div>
             </div>
           ) : (
-            <h1 className="font-semibold text-[17px] text-[#26181c] tracking-tight truncate max-w-[130px] sm:max-w-[180px]">
-              {title}
-            </h1>
+            <div className="flex flex-col overflow-hidden">
+              <h1 className="font-semibold text-[17px] text-[#26181c] tracking-tight truncate max-w-[130px] sm:max-w-[180px] leading-tight">
+                {title}
+              </h1>
+              <OfflineSyncStatus isSyncing={isSyncing} />
+            </div>
           )}
         </div>
 

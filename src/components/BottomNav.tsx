@@ -36,8 +36,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-2xl pb-safe shadow-[0_-2px_16px_rgba(0,0,0,0.04)] border-t border-[#e8e8e8]/60" data-active-classes="text-primary-pink">
-      <div className="flex justify-around items-center h-20 px-1 max-w-md mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-3xl pb-safe shadow-[0_-8px_24px_rgba(0,0,0,0.06)] border-t border-[#e8e8e8]/60" data-active-classes="text-primary-pink">
+      <div className="flex justify-around items-center pt-3 pb-4 px-1 max-w-md mx-auto min-h-[84px]">
         {items.map((item) => {
           const isActive = currentScreen === item.id;
           return (

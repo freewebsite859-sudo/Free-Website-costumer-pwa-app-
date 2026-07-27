@@ -121,7 +121,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   }
 
   return (
-    <div className="flex flex-col w-full relative min-h-screen bg-[#fff8f8] pb-32">
+    <div className="flex flex-col w-full max-w-md mx-auto relative min-h-screen bg-[#fff8f8] pb-48">
       {/* Waitlist Modal */}
       <WaitlistModal
         isOpen={isWaitlistModalOpen}
@@ -359,7 +359,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       </main>
 
       {/* Sticky Bottom Summary Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white/90 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] pb-safe z-40 max-w-md mx-auto border-t border-[#e8e8e8]">
+      <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl shadow-[0_-12px_40px_rgba(0,0,0,0.08)] pb-safe z-40 max-w-md mx-auto border-t border-[#e8e8e8] mb-safe">
         <div className="flex items-center justify-between mb-3 px-1">
           <div>
             <p className="text-[12px] text-[#5a3f47] font-medium">Selected Time</p>

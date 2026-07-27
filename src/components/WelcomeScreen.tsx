@@ -41,97 +41,58 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onContinue }) => {
 
   if (isSplash) {
     return (
-      <div className="fixed inset-0 z-50 bg-[#fcf9f8] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
-        {/* Main Splash Content */}
-        <div className="flex flex-col items-center justify-center my-auto z-10 animate-in fade-in zoom-in duration-700">
-          <div className="mb-6 relative">
-            <div className="absolute inset-0 bg-[#e6007e]/15 rounded-full blur-2xl transform scale-125" />
-            <img
-              src={LOGO_SQUARE}
-              alt="Nexora Logo"
-              className="w-24 h-24 object-contain relative z-10 drop-shadow-xl rounded-2xl animate-pulse"
-            />
-          </div>
-          <h1 className="text-[32px] font-extrabold text-[#26181c] tracking-tight mb-1">Nexora</h1>
-          <p className="text-[15px] text-[#5a3f47] max-w-[240px] leading-relaxed">
-            Salon booking made simple
-          </p>
+      <div className="fixed inset-0 z-[100] bg-[#fff8f8] flex flex-col items-center justify-center overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,248,248,1)_0%,rgba(252,249,248,1)_100%)]" />
+        
+        {/* Rotating Light Rays */}
+        <div className="absolute inset-0 z-0 flex items-center justify-center opacity-5">
+          <div className="w-[800px] h-[800px] animate-[spin_18s_linear_infinite] rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(0,0,0,0.1)_15deg,transparent_30deg,rgba(0,0,0,0.1)_45deg,transparent_60deg,rgba(0,0,0,0.1)_75deg,transparent_90deg,rgba(0,0,0,0.1)_105deg,transparent_120deg,rgba(0,0,0,0.1)_135deg,transparent_150deg,rgba(0,0,0,0.1)_165deg,transparent_180deg,rgba(0,0,0,0.1)_195deg,transparent_210deg,rgba(0,0,0,0.1)_225deg,transparent_240deg,rgba(0,0,0,0.1)_255deg,transparent_270deg,rgba(0,0,0,0.1)_285deg,transparent_300deg,rgba(0,0,0,0.1)_315deg,transparent_330deg,rgba(0,0,0,0.1)_345deg,transparent_360deg)]" />
         </div>
 
-        {/* Loading Indicator at Bottom */}
-        <div className="absolute bottom-12 left-0 right-0 flex flex-col items-center gap-2 z-10">
-          <svg className="w-6 h-6 animate-spin text-[#e6007e]" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-            <path
-              className="opacity-100"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              fill="currentColor"
-            />
-          </svg>
-          <span className="text-[12px] text-[#5a3f47]/80 font-medium">Getting things ready...</span>
-        </div>
-
-        {/* State Simulator Controls for Dev/Testing */}
-        <div className="absolute top-4 right-4 flex gap-1 z-30">
-          <button
-            onClick={() => setSimulatedState('offline')}
-            className="text-[10px] bg-rose-100 text-rose-700 px-2 py-1 rounded cursor-pointer"
-          >
-            Offline
-          </button>
-          <button
-            onClick={() => setSimulatedState('update')}
-            className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-pointer"
-          >
-            Update
-          </button>
-        </div>
-
-        {/* Offline Modal */}
-        {simulatedState === 'offline' && (
-          <div className="absolute inset-0 bg-[#fff8f8]/95 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6">
-            <div className="bg-white p-6 rounded-[24px] shadow-xl border border-[#e8e8e8] text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-[32px]">wifi_off</span>
-              </div>
-              <h2 className="text-lg font-bold text-[#26181c] mb-1">We could not connect</h2>
-              <p className="text-xs text-[#5a3f47] mb-6">Check your internet and try again.</p>
-              <button
-                onClick={() => setSimulatedState('normal')}
-                className="w-full h-12 bg-[#e6007e] text-white font-semibold text-xs rounded-xl shadow-md cursor-pointer"
-              >
-                Try Again
-              </button>
+        {/* Main Content Canvas */}
+        <div className="z-10 flex flex-col items-center justify-center p-12 w-full max-w-md">
+          {/* Logo Section */}
+          <div className="relative flex items-center justify-center mb-8">
+            {/* Glow Ring */}
+            <div className="absolute w-[180px] h-[180px] rounded-full bg-[#e6007e] animate-pulse opacity-30 blur-[40px] z-0" />
+            
+            {/* Logo Container with Entrance & Breathing */}
+            <div className="relative z-10 w-[120px] h-[120px] rounded-3xl overflow-hidden shadow-sm border border-[#e8e8e8] bg-white animate-in zoom-in fade-in duration-1000">
+              <img 
+                src={LOGO_SQUARE}
+                alt="Nexora Brand Logo" 
+                className="w-full h-full object-cover rounded-3xl"
+              />
             </div>
           </div>
-        )}
 
-        {/* Update Available Modal */}
-        {simulatedState === 'update' && (
-          <div className="absolute inset-0 bg-[#fff8f8]/95 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6">
-            <div className="bg-white p-6 rounded-[24px] shadow-xl border border-[#e8e8e8] text-center w-full max-w-xs">
-              <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-[32px]">system_update</span>
-              </div>
-              <h2 className="text-lg font-bold text-[#26181c] mb-1">A new version is ready</h2>
-              <p className="text-xs text-[#5a3f47] mb-6">
-                Update the app to get the latest improvements and bug fixes.
-              </p>
-              <button
-                onClick={() => setSimulatedState('normal')}
-                className="w-full h-12 bg-[#e6007e] text-white font-semibold text-xs rounded-xl shadow-md mb-2 cursor-pointer"
-              >
-                Update Now
-              </button>
-              <button
-                onClick={() => setSimulatedState('normal')}
-                className="w-full h-10 text-xs text-[#5a3f47] cursor-pointer"
-              >
-                Later
-              </button>
+          {/* Typography Section */}
+          <div className="flex flex-col items-center text-center space-y-3 z-10">
+            <h1 className="font-serif text-[32px] font-semibold tracking-[6px] text-[#26181c] uppercase animate-in slide-in-from-bottom-4 fade-in duration-1000 delay-300">
+              Nexora
+            </h1>
+            <h2 className="text-[11px] text-[#e6007e] font-bold tracking-[8px] uppercase animate-in slide-in-from-bottom-4 fade-in duration-1000 delay-500">
+              Growth Partner
+            </h2>
+            <p className="text-[13px] text-[#5a3f47] opacity-70 animate-in slide-in-from-bottom-4 fade-in duration-1000 delay-700 mt-4">
+              Your Salon. Your Brand. Your Success.
+            </p>
+          </div>
+
+          {/* Loading Progress */}
+          <div className="w-48 h-1 bg-[#fce2e7] rounded-full mt-16 overflow-hidden relative z-10 animate-in fade-in duration-1000 delay-200">
+            <div className="h-full bg-gradient-to-r from-[#e6007e] to-[#ff4fa3] rounded-full w-full animate-[progress_2.8s_ease-in-out_forwards] relative">
+              <div className="absolute top-0 right-0 bottom-0 w-4 bg-white opacity-50 blur-sm rounded-full" />
             </div>
           </div>
-        )}
+        </div>
+
+        {/* State Simulator Controls */}
+        <div className="absolute top-4 right-4 flex gap-1 z-30 opacity-0 hover:opacity-100 transition-opacity">
+          <button onClick={() => setSimulatedState('offline')} className="text-[10px] bg-rose-100 text-rose-700 px-2 py-1 rounded">Offline</button>
+          <button onClick={() => setSimulatedState('update')} className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded">Update</button>
+        </div>
       </div>
     );
   }

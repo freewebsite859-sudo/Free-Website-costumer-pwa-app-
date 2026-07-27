@@ -27,13 +27,15 @@ import { NotificationOverlay } from './components/NotificationOverlay';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { SignUpScreen } from './components/auth/SignUpScreen';
+import { RoleAssignedConflict } from './components/auth/RoleAssignedConflict';
 import { ScanUpiQrModal } from './components/ScanUpiQrModal';
 import { AddUpiModal, SavedUpi } from './components/AddUpiModal';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authScreen, setAuthScreen] = useState<'login' | 'signup'>('login');
+  const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'role-conflict'>('login');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -162,10 +164,123 @@ export default function App() {
     return localStorage.getItem('profile_avatar') || '';
   });
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    // 1. Listen for BroadcastChannel messages from SW
+    const syncChannel = new BroadcastChannel('app-sync');
+    syncChannel.onmessage = (event) => {
+      if (event.data.type === 'SYNC_COMPLETE') {
+        console.log('Sync complete received from SW', event.data);
+        setIsSyncing(false);
+        
+        // If data was passed from SW, use it to update state
+        if (event.data.data && Array.isArray(event.data.data)) {
+          setBookings(prev => {
+            const newBookings = [...prev];
+            event.data.data.forEach((newBk: Booking) => {
+              const idx = newBookings.findIndex(b => b.id === newBk.id);
+              if (idx > -1) {
+                newBookings[idx] = newBk;
+              } else {
+                newBookings.push(newBk);
+              }
+            });
+            return newBookings;
+          });
+        } else {
+          // Fallback: Refresh bookings from localStorage 
+          const saved = localStorage.getItem('nexora_bookings');
+          if (saved) {
+            setBookings(JSON.parse(saved));
+          }
+        }
+        
+        // Show a temporary sync notification
+        const syncNotif: AppNotification = {
+          id: `sync-${Date.now()}`,
+          bookingId: '',
+          salonName: 'System',
+          timeSlot: '',
+          dateStr: '',
+          servicesSummary: 'Appointments synced',
+          timestamp: Date.now(),
+          read: false,
+          type: 'reminder_1h',
+          message: 'Your appointments have been successfully synced with the cloud.',
+        };
+        setNotifications(prev => [syncNotif, ...prev]);
+        setActivePushOverlay(syncNotif);
+      }
+    };
+
+    // 2. Register for Background Sync when regaining connectivity
+    const handleOnline = async () => {
+      console.log('App is online. Registering background sync...');
+      if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          await (registration as any).sync.register('sync-appointments');
+          setIsSyncing(true);
+        } catch (err) {
+          console.error('Background sync registration failed:', err);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    
+    return () => {
+      syncChannel.close();
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []); // Use empty dependency or handle refreshes carefully
+
   // Global UPI QR Scanner States
   const [isGlobalScanQrOpen, setIsGlobalScanQrOpen] = useState(false);
   const [isGlobalAddUpiOpen, setIsGlobalAddUpiOpen] = useState(false);
   const [globalPrefilledUpi, setGlobalPrefilledUpi] = useState('');
+
+  // PWA Installation State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+      console.log('beforeinstallprompt event was stashed');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    window.addEventListener('appinstalled', () => {
+      // Clear the deferredPrompt so it can be garbage collected
+      setDeferredPrompt(null);
+      console.log('PWA was installed');
+      
+      // Show success notification
+      const installNotif: AppNotification = {
+        id: `install-${Date.now()}`,
+        bookingId: '',
+        salonName: 'Nexora',
+        timeSlot: '',
+        dateStr: '',
+        servicesSummary: 'App Installed Successfully',
+        timestamp: Date.now(),
+        read: false,
+        type: 'reminder_1h',
+        message: 'Nexora has been added to your home screen. Enjoy a faster booking experience!',
+      };
+      setNotifications(prev => [installNotif, ...prev]);
+      setActivePushOverlay(installNotif);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
   // Sync state to localStorage
   useEffect(() => {
@@ -403,10 +518,18 @@ export default function App() {
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   if (!user) {
-    return authScreen === 'login' ? (
-      <LoginScreen onToggleAuth={() => setAuthScreen('signup')} />
-    ) : (
-      <SignUpScreen onToggleAuth={() => setAuthScreen('login')} />
+    if (authScreen === 'login') {
+      return <LoginScreen onToggleAuth={() => setAuthScreen('signup')} />;
+    }
+    if (authScreen === 'signup') {
+      return <SignUpScreen onToggleAuth={() => setAuthScreen('login')} onConflict={() => setAuthScreen('role-conflict')} />;
+    }
+    return (
+      <RoleAssignedConflict 
+        onLogin={() => setAuthScreen('login')}
+        onUseAnotherEmail={() => setAuthScreen('signup')}
+        onContactSupport={() => setCurrentScreen('support')}
+      />
     );
   }
 
@@ -472,13 +595,14 @@ export default function App() {
             onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
             onOpenQrScanner={() => setIsGlobalScanQrOpen(true)}
             userAvatar={profileAvatar}
+            isSyncing={isSyncing}
           />
         )}
 
-      <div className="w-full max-w-md mx-auto flex-1 flex flex-col relative">
+      <div className="w-full flex-1 flex flex-col relative">
         {/* Content Body Container */}
         <main
-          className={`flex-1 w-full ${
+          className={`flex-1 w-full max-w-md mx-auto ${
             currentScreen !== 'welcome' &&
             currentScreen !== 'splash' &&
             currentScreen !== 'location-modal' && currentScreen !== 'salon-detail' && currentScreen !== 'checkout'
@@ -686,6 +810,11 @@ export default function App() {
           setGlobalPrefilledUpi('');
           setCurrentScreen('profile');
         }}
+      />
+
+      <PWAInstallPrompt 
+        deferredPrompt={deferredPrompt} 
+        onInstall={() => setDeferredPrompt(null)} 
       />
     </div>
   );

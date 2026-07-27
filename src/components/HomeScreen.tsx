@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Salon, Screen, UserLocation, Booking } from '../types';
 import { BANNER_URL, INITIAL_BOOKINGS } from '../data/mockData';
 import { SalonCardSkeleton } from './Skeleton';
+import { OfflineDashboardCard } from './OfflineDashboardCard';
 
 interface HomeScreenProps {
   location: UserLocation;
@@ -351,8 +352,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return 0;
   });
 
+  const nextBooking = useMemo(() => {
+    return userBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING');
+  }, [userBookings]);
+
   return (
-    <div className="flex flex-col w-full gap-5 pb-28 pt-2">
+    <div className="flex flex-col w-full max-w-md mx-auto gap-5 pb-40 pt-2">
       {/* Header Location & Search */}
       <section className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
@@ -416,6 +421,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </section>
 
+      {/* Offline / Cached Appointment Dashboard Card */}
+      {nextBooking && (
+        <section className="animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-[15px] font-bold text-[#26181c] flex items-center gap-2">
+              <span className="w-1 h-5 bg-[#e6007e] rounded-full" />
+              Upcoming Appointment
+            </h2>
+            <button 
+              onClick={() => onNavigate('bookings')}
+              className="text-[12px] font-bold text-[#e6007e] hover:underline"
+            >
+              View All
+            </button>
+          </div>
+          <OfflineDashboardCard booking={nextBooking} />
+        </section>
+      )}
+
       {/* Category Grid / Carousel */}
       <section className="-mx-5 px-5 relative group/cat">
         {/* Left Scroll Button */}
@@ -430,7 +454,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Category List */}
         <div
           ref={categoryRef}
-          className="flex overflow-x-auto gap-4 pb-2 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2"
+          className="flex overflow-x-auto gap-4 pt-3 pb-2 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2"
         >
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
@@ -571,7 +595,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               initial="hidden"
               animate="show"
               exit="exit"
-              className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5 scroll-smooth snap-x snap-mandatory"
+              className="flex gap-3 overflow-x-auto pt-2 pb-1 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5 scroll-smooth snap-x snap-mandatory"
             >
               {frequentServices.map((item, idx) => {
                 const matchedSalon = salons.find((s) => s.id === item.lastSalonId) || salons[0];
@@ -653,7 +677,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               initial="hidden"
               animate="show"
               exit="exit"
-              className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5 scroll-smooth snap-x snap-mandatory"
+              className="flex gap-3 overflow-x-auto pt-2 pb-1 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5 scroll-smooth snap-x snap-mandatory"
             >
               {trendingTreatments.map((item, idx) => (
                 <motion.div
@@ -842,7 +866,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             initial="hidden"
             animate="show"
             exit="exit"
-            className="flex gap-4 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5 scroll-smooth snap-x snap-mandatory"
+            className="flex gap-4 overflow-x-auto pt-2 pb-2 scrollbar-none -mx-4 px-4 sm:-mx-5 sm:px-5 scroll-smooth snap-x snap-mandatory"
           >
             {recommendedSalons.slice(0, 5).map(({ salon, matchPercentage, primaryReason, secondaryReason }) => {
               const isFav = favorites.includes(salon.id);
