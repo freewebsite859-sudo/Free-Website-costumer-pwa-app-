@@ -308,31 +308,87 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
 
       {/* Cancelled Tab */}
       {activeTab === 'cancelled' && (
-        <div className="flex flex-col gap-3 animate-in fade-in">
+        <div className="flex flex-col gap-4 animate-in fade-in">
           {cancelledBookings.length > 0 ? (
-            cancelledBookings.map((b) => (
-              <div
-                key={b.id}
-                className="bg-white rounded-2xl p-4 shadow-sm border border-[#e8e8e8] opacity-75"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <span className="inline-block px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-semibold uppercase mb-1">
-                      Cancelled
-                    </span>
-                    <h4 className="font-bold text-[#26181c] text-[16px]">{b.salonName}</h4>
-                    <p className="text-xs text-[#5a3f47]">{b.services.map((s) => s.name).join(', ')}</p>
-                  </div>
-                  <span className="text-xs font-semibold text-[#8c7077]">{b.dateStr}</span>
-                </div>
-                <button
-                  onClick={() => onNavigate('home')}
-                  className="mt-2 text-xs text-[#e6007e] font-semibold hover:underline"
+            cancelledBookings.map((b) => {
+              const advancePaid = Math.round(b.totalAmount * 0.25);
+              const refundAmount = Math.round(advancePaid * 0.5);
+              return (
+                <div
+                  key={b.id}
+                  className="bg-white rounded-[24px] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] relative overflow-hidden group border border-[#e8e8e8]"
                 >
-                  Rebook Treatment
-                </button>
-              </div>
-            ))
+                  <div className="flex justify-between items-start mb-3 relative z-10">
+                    <div>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase mb-2 bg-rose-50 text-rose-600 border border-rose-200">
+                        Cancelled
+                      </span>
+                      <h3 className="text-[18px] text-[#26181c] font-bold mb-0.5">
+                        {b.salonName}
+                      </h3>
+                      <p className="text-[14px] text-[#5a3f47] font-medium">
+                        {b.services.map((s) => s.name).join(', ')}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-rose-600">close</span>
+                    </div>
+                  </div>
+
+                  {/* Date & Time Row */}
+                  <div className="flex items-center gap-4 py-3 mb-3 border-t border-[#e8e8e8]/60 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#5a3f47] text-[20px]">
+                        calendar_month
+                      </span>
+                      <span className="text-[13px] text-[#26181c] font-semibold">
+                        {b.dateStr}
+                      </span>
+                    </div>
+                    <div className="w-1 h-1 rounded-full bg-[#8c7077]" />
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#5a3f47] text-[20px]">
+                        schedule
+                      </span>
+                      <span className="text-[13px] text-[#26181c] font-semibold">
+                        {b.timeSlot}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Refund status bar */}
+                  <div className="bg-[#fff0f2] rounded-xl px-3.5 py-2.5 flex items-center justify-between mb-4 border border-[#fcd5e8]">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-[#003ea9]">
+                        check_circle
+                      </span>
+                      <span className="text-[12px] font-medium text-[#594047]">
+                        Refund Processed
+                      </span>
+                    </div>
+                    <span className="text-[13px] font-bold text-[#26181c]">
+                      ₹{refundAmount > 0 ? refundAmount : 125}.00
+                    </span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedBooking(b)}
+                      className="flex-1 h-[44px] bg-[#f6dce2] hover:bg-[#ffd9e2] text-[#26181c] text-[12px] font-bold rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => onNavigate('home')}
+                      className="flex-1 h-[44px] bg-[#fde7f3] hover:bg-[#e6007e] hover:text-white text-[#e6007e] text-[12px] font-bold rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      Book Again
+                    </button>
+                  </div>
+                </div>
+              );
+            })
           ) : (
             <div className="text-center py-12 bg-white rounded-2xl p-6 border border-[#e8e8e8]">
               <span className="material-symbols-outlined text-[40px] text-[#e0bec6] mb-2">block</span>

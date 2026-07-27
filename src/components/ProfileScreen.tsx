@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AVATAR_URL } from '../data/mockData';
 import { Screen, UserLocation, Booking, Address } from '../types';
+import { AddCardModal, SavedCard } from './AddCardModal';
+import { AddUpiModal, SavedUpi } from './AddUpiModal';
 
 interface ProfileScreenProps {
   location: UserLocation;
@@ -110,6 +112,81 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isPaymentMethodsOpen, setIsPaymentMethodsOpen] = useState(false);
+  const [isAddCardOpen, setIsAddCardOpen] = useState(false);
+  const [isAddUpiOpen, setIsAddUpiOpen] = useState(false);
+
+  const [savedCards, setSavedCards] = useState<SavedCard[]>(() => {
+    const saved = localStorage.getItem('nexora_saved_cards');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'card-1',
+        cardNumber: '•••• •••• •••• 4242',
+        cardHolder: 'PRIYA SHARMA',
+        expiry: '12/26',
+        network: 'visa',
+        isPrimary: true,
+      },
+      {
+        id: 'card-2',
+        cardNumber: '•••• •••• •••• 8810',
+        cardHolder: 'PRIYA SHARMA',
+        expiry: '09/25',
+        network: 'mastercard',
+        isPrimary: false,
+      },
+    ];
+  });
+
+  const [savedUpis, setSavedUpis] = useState<SavedUpi[]>(() => {
+    const saved = localStorage.getItem('nexora_saved_upis');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'upi-1',
+        upiId: 'amelia.strat@okaxis',
+        name: 'Amelia Stratton',
+        provider: 'okaxis',
+        isVerified: true,
+      },
+      {
+        id: 'upi-2',
+        upiId: '9876543210@paytm',
+        name: 'Amelia Stratton',
+        provider: 'paytm',
+        isVerified: true,
+      },
+    ];
+  });
+
+  const handleCardAdded = (newCard: SavedCard) => {
+    const updated = [newCard, ...savedCards];
+    setSavedCards(updated);
+    localStorage.setItem('nexora_saved_cards', JSON.stringify(updated));
+    triggerToast('Card saved successfully!');
+  };
+
+  const handleDeleteCard = (cardId: string) => {
+    const updated = savedCards.filter((c) => c.id !== cardId);
+    setSavedCards(updated);
+    localStorage.setItem('nexora_saved_cards', JSON.stringify(updated));
+    triggerToast('Card removed');
+  };
+
+  const handleUpiAdded = (newUpi: SavedUpi) => {
+    const updated = [newUpi, ...savedUpis];
+    setSavedUpis(updated);
+    localStorage.setItem('nexora_saved_upis', JSON.stringify(updated));
+    triggerToast('UPI ID linked successfully!');
+  };
+
+  const handleDeleteUpi = (upiId: string) => {
+    const updated = savedUpis.filter((u) => u.id !== upiId);
+    setSavedUpis(updated);
+    localStorage.setItem('nexora_saved_upis', JSON.stringify(updated));
+    triggerToast('UPI ID removed');
+  };
 
   // Feedback State
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
@@ -704,6 +781,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               icon="person"
               label="Personal Information"
               onClick={openEditModal}
+            />
+            <MenuItem
+              icon="credit_card"
+              label="Saved Cards & Payment Methods"
+              badge={`${savedCards.length} Saved`}
+              onClick={() => setIsPaymentMethodsOpen(true)}
             />
             <MenuItem
               icon="location_on"
@@ -2197,6 +2280,152 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </button>
         </div>
       </Modal>
+
+      {/* Modal 12: Saved Cards & Payment Methods */}
+      <Modal
+        isOpen={isPaymentMethodsOpen}
+        onClose={() => setIsPaymentMethodsOpen(false)}
+        title="Saved Cards & Payment Methods"
+      >
+        <div className="p-1 flex flex-col gap-5">
+          {/* Saved Cards Header */}
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[14px] font-bold text-[#26181c]">Saved Cards</p>
+              <p className="text-[11px] text-[#594047]">Fast 1-click credit & debit card checkout</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddCardOpen(true)}
+              className="px-3 py-1.5 bg-[#e6007e] hover:bg-[#b90064] text-white text-[12px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_card</span>
+              <span>+ Add Card</span>
+            </button>
+          </div>
+
+          {/* Cards List */}
+          <div className="flex flex-col gap-2.5">
+            {savedCards.map((card) => (
+              <div
+                key={card.id}
+                className="p-3.5 rounded-2xl bg-[#fff8f8] border border-[#e0bec6] flex items-center justify-between shadow-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-[#e8e8e8] flex items-center justify-center text-[#e6007e] shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">credit_card</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[13px] font-bold text-[#26181c] font-mono">{card.cardNumber}</p>
+                      {card.isPrimary && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#fde7f3] text-[#e6007e] text-[9px] font-bold uppercase">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#594047]">
+                      {card.cardHolder} • Expires {card.expiry}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCard(card.id)}
+                  className="w-8 h-8 rounded-full hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  title="Remove Card"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete_outline</span>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Saved UPI IDs Header */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e8e8e8]">
+            <div>
+              <p className="text-[14px] font-bold text-[#26181c]">Linked UPI IDs</p>
+              <p className="text-[11px] text-[#594047]">Google Pay, PhonePe, Paytm & BHIM</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddUpiOpen(true)}
+              className="px-3 py-1.5 bg-[#8e004b] hover:bg-[#58002c] text-white text-[12px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
+              <span>+ Add UPI ID</span>
+            </button>
+          </div>
+
+          {/* UPI List */}
+          <div className="flex flex-col gap-2.5">
+            {savedUpis.map((upi) => (
+              <div
+                key={upi.id}
+                className="p-3.5 rounded-2xl bg-[#fff8f8] border border-[#e0bec6] flex items-center justify-between shadow-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#dbe1ff] text-[#00174b] flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[13px] font-bold text-[#26181c] font-mono">{upi.upiId}</p>
+                      {upi.isVerified && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold uppercase flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[11px]">check</span>
+                          Verified
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#594047]">{upi.name}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteUpi(upi.id)}
+                  className="w-8 h-8 rounded-full hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  title="Remove UPI ID"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete_outline</span>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Prompt banner to test add UPI */}
+          <div className="p-3.5 rounded-2xl bg-[#fff0f2] border border-[#fcd5e8] flex items-center justify-between gap-2 mt-1">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#e6007e] text-[20px]">qr_code_2</span>
+              <div>
+                <p className="text-[12px] font-bold text-[#26181c]">Link New UPI ID</p>
+                <p className="text-[11px] text-[#594047]">Verify ID and link for 1-click payments</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddUpiOpen(true)}
+              className="px-3 py-1.5 bg-[#8e004b] text-white text-[11px] font-bold rounded-xl shrink-0 cursor-pointer hover:bg-[#58002c]"
+            >
+              Add UPI
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Card Modal */}
+      <AddCardModal
+        isOpen={isAddCardOpen}
+        onClose={() => setIsAddCardOpen(false)}
+        onCardAdded={handleCardAdded}
+      />
+
+      {/* Add UPI Modal */}
+      <AddUpiModal
+        isOpen={isAddUpiOpen}
+        onClose={() => setIsAddUpiOpen(false)}
+        onUpiAdded={handleUpiAdded}
+      />
 
     </div>
   );
