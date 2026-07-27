@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Salon, Screen, UserLocation, Booking } from '../types';
 import { BANNER_URL, INITIAL_BOOKINGS } from '../data/mockData';
+import { SalonCardSkeleton } from './Skeleton';
 
 interface HomeScreenProps {
   location: UserLocation;
@@ -28,9 +29,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [recommendationFilter, setRecommendationFilter] = useState<'all' | 'near' | 'category' | 'top'>('all');
   const [topTab, setTopTab] = useState<'frequent' | 'trending'>('frequent');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filterRadius, setFilterRadius] = useState<number>(30); // Default to max
+  const [sortBy, setSortBy] = useState<string>('Default');
+  const [filterArea, setFilterArea] = useState<string>('All');
+  const [filterAudience, setFilterAudience] = useState<string>('All');
+  
+  const popularAreas = ['All', 'Malviya Nagar', 'Vaishali Nagar', 'C-Scheme', 'Raja Park', 'Mansarovar'];
+  const radiusOptions = [2, 5, 10, 15, 20, 25, 30];
+  const sortOptions = ['Default', 'Price: Low to High', 'Price: High to Low', 'Highest Rated'];
+  const audienceOptions = ['All', 'Unisex', 'Male / Men', 'Female / Women', 'Kids / Children'];
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
+  }, []);
   // Scroll container ref for smooth horizontal carousel scrolling
   const carouselRef = React.useRef<HTMLDivElement>(null);
   const recCarouselRef = React.useRef<HTMLDivElement>(null);
+  const categoryRef = React.useRef<HTMLDivElement>(null);
 
   const handleScrollCarousel = (direction: 'left' | 'right') => {
     if (carouselRef.current) {
@@ -43,6 +62,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (recCarouselRef.current) {
       const scrollAmount = direction === 'left' ? -300 : 300;
       recCarouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const handleScrollCategory = (direction: 'left' | 'right') => {
+    if (categoryRef.current) {
+      const scrollAmount = direction === 'left' ? -220 : 220;
+      categoryRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
@@ -279,12 +305,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }, [salons, location, preferredCategories, recommendationFilter]);
 
   const categories = [
-    { id: 'All', label: 'All', icon: 'auto_awesome' },
-    { id: 'Hair', label: 'Hair', icon: 'content_cut' },
-    { id: 'Skin', label: 'Skin', icon: 'spa' },
-    { id: 'Nails', label: 'Nails', icon: 'pan_tool_alt' },
-    { id: 'Spa', label: 'Spa', icon: 'self_care' },
-    { id: 'Makeup', label: 'Makeup', icon: 'face_retouching_natural' },
+    { id: 'All', label: 'All', image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Hair', label: 'Hair', image: 'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Skin', label: 'Skin', image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Nails', label: 'Nails', image: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Spa', label: 'Spa', image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Makeup', label: 'Makeup', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Barber Shop', label: 'Barber Shop', image: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Beauty Parlour', label: 'Beauty Parlour', image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Massage & Wellness', label: 'Massage & Wellness', image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Tattoo & Piercing', label: 'Tattoo & Piercing', image: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=200&q=80' },
   ];
 
   const filteredSalons = salons.filter((salon) => {
@@ -299,7 +329,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       salon.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
       salon.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return matchesCategory && matchesSearch;
+    const matchesRadius = salon.distanceKm <= filterRadius;
+
+    const matchesArea = filterArea === 'All' || salon.area.toLowerCase().includes(filterArea.toLowerCase()) || filterArea.toLowerCase().includes(salon.area.toLowerCase());
+
+    const matchesAudience = filterAudience === 'All' || (() => {
+      if (filterAudience === 'Unisex') return salon.genderCategory === 'Unisex';
+      if (filterAudience === 'Male / Men') return salon.genderCategory === 'Men Only' || salon.genderCategory === 'Unisex';
+      if (filterAudience === 'Female / Women') return salon.genderCategory === 'Women Only' || salon.genderCategory === 'Unisex';
+      if (filterAudience === 'Kids / Children') return salon.tags.some(t => t.toLowerCase().includes('kid') || t.toLowerCase().includes('child'));
+      return true;
+    })();
+
+    return matchesCategory && matchesSearch && matchesRadius && matchesArea && matchesAudience;
+  }).sort((a, b) => {
+    if (sortBy === 'Price: Low to High') return a.startingPrice - b.startingPrice;
+    if (sortBy === 'Price: High to Low') return b.startingPrice - a.startingPrice;
+    if (sortBy === 'Highest Rated') return b.rating - a.rating;
+    return 0;
   });
 
   return (
@@ -344,38 +391,59 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </button>
           ) : (
             <button
-              onClick={() => onNavigate('search')}
-              className="absolute inset-y-0 right-2 flex items-center p-2 text-[#e6007e] rounded-full hover:bg-[#fde7f3] transition-colors"
+              onClick={() => setIsFilterModalOpen(true)}
+              className="absolute inset-y-0 right-2 flex items-center p-2 text-[#e6007e] rounded-full hover:bg-[#fde7f3] transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[22px]">tune</span>
+              {(filterRadius < 30 || sortBy !== 'Default' || filterArea !== 'All' || filterAudience !== 'All') && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
+              )}
             </button>
           )}
         </div>
       </section>
 
-      {/* Category Grid */}
-      <section className="-mx-2 px-2">
-        <div className="flex flex-wrap justify-center gap-y-4 gap-x-2 pb-1">
+      {/* Category Grid / Carousel */}
+      <section className="-mx-5 px-5 relative group/cat">
+        {/* Left Scroll Button */}
+        <button
+          onClick={() => handleScrollCategory('left')}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 backdrop-blur-md border border-[#f0d8e2] shadow-md flex items-center justify-center text-[#e6007e] hover:bg-[#e6007e] hover:text-white transition-all cursor-pointer opacity-90 sm:opacity-0 sm:group-hover/cat:opacity-100"
+          aria-label="Scroll categories left"
+        >
+          <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+        </button>
+
+        {/* Category List */}
+        <div
+          ref={categoryRef}
+          className="flex overflow-x-auto gap-4 pb-2 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2"
+        >
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className="flex flex-col items-center gap-2 min-w-[68px] group transition-transform active:scale-95 shrink-0"
+                className="flex flex-col items-center gap-2 min-w-[72px] snap-start group/btn transition-transform active:scale-95 shrink-0 cursor-pointer"
               >
                 <div
-                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-sm ${
+                  className={`w-16 h-16 rounded-full overflow-hidden p-0.5 transition-all shadow-sm relative ${
                     isSelected
-                      ? 'bg-[#e6007e] text-white shadow-md shadow-[#e6007e]/20'
-                      : 'bg-[#fce2e7] text-[#5a3f47] group-hover:bg-[#fde7f3] group-hover:text-[#e6007e]'
+                      ? 'ring-2 ring-[#e6007e] ring-offset-2 ring-offset-white shadow-md shadow-[#e6007e]/20 scale-105'
+                      : 'border border-[#f0d8e2] group-hover/btn:border-[#e6007e] group-hover/btn:scale-105'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[28px]">{cat.icon}</span>
+                  <img
+                    src={cat.image}
+                    alt={cat.label}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover/btn:scale-110"
+                  />
                 </div>
                 <span
-                  className={`text-[13px] font-medium transition-colors ${
-                    isSelected ? 'text-[#e6007e] font-semibold' : 'text-[#26181c]'
+                  className={`text-[12px] font-medium transition-colors text-center line-clamp-1 max-w-[80px] ${
+                    isSelected ? 'text-[#e6007e] font-bold' : 'text-[#26181c] group-hover/btn:text-[#e6007e]'
                   }`}
                 >
                   {cat.label}
@@ -384,6 +452,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             );
           })}
         </div>
+
+        {/* Right Scroll Button */}
+        <button
+          onClick={() => handleScrollCategory('right')}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 backdrop-blur-md border border-[#f0d8e2] shadow-md flex items-center justify-center text-[#e6007e] hover:bg-[#e6007e] hover:text-white transition-all cursor-pointer opacity-90 sm:opacity-0 sm:group-hover/cat:opacity-100"
+          aria-label="Scroll categories right"
+        >
+          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+        </button>
       </section>
 
       {/* Frequent Services & Trending Treatments Section (Booking History Analysis) */}
@@ -879,7 +956,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {filteredSalons.map((salon) => {
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => <SalonCardSkeleton key={i} />)
+          ) : filteredSalons.length > 0 ? (
+            filteredSalons.map((salon) => {
             const isFav = favorites.includes(salon.id);
             return (
               <div
@@ -985,9 +1065,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
               </div>
             );
-          })}
+          })
+          ) : (
 
-          {filteredSalons.length === 0 && (
+
             <div className="text-center py-12 bg-white rounded-2xl p-6">
               <span className="material-symbols-outlined text-[48px] text-[#e0bec6] mb-2">search_off</span>
               <h3 className="font-semibold text-[#26181c]">No salons found</h3>
@@ -996,8 +1077,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 onClick={() => {
                   setSelectedCategory('All');
                   setSearchQuery('');
+                  setFilterRadius(30);
+                  setSortBy('Default');
+                  setFilterArea('All');
+                  setFilterAudience('All');
                 }}
-                className="mt-4 px-4 py-2 bg-[#fde7f3] text-[#e6007e] rounded-xl text-xs font-semibold"
+                className="mt-4 px-4 py-2 bg-[#fde7f3] text-[#e6007e] rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Reset Filters
               </button>
@@ -1005,6 +1090,144 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </div>
       </section>
+
+      {/* Smart Filter Modal */}
+      <AnimatePresence>
+        {isFilterModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
+          >
+            <div className="absolute inset-0 bg-transparent" onClick={() => setIsFilterModalOpen(false)} />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white w-full sm:max-w-md rounded-t-[24px] sm:rounded-[24px] shadow-2xl flex flex-col relative max-h-[85vh] overflow-hidden pb-safe"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-[#e8e8e8]">
+                <h3 className="text-[18px] font-bold text-[#26181c]">Smart Search Filters</h3>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#fcf9f8] flex items-center justify-center text-[#8c7077] hover:text-[#e6007e] hover:bg-[#fde7f3] transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <div className="p-4 flex-1 overflow-y-auto space-y-5">
+                {/* Area Filter */}
+                <div>
+                  <h4 className="text-[14px] font-bold text-[#26181c] mb-3">Popular Areas (Jaipur)</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {popularAreas.map(area => (
+                      <button
+                        key={area}
+                        onClick={() => setFilterArea(area)}
+                        className={`px-3 py-1.5 rounded-full text-[13px] font-semibold transition-all cursor-pointer ${
+                          filterArea === area
+                            ? 'bg-[#e6007e] text-white shadow-md'
+                            : 'bg-[#fcf9f8] text-[#5a3f47] border border-[#e8e8e8] hover:border-[#e6007e]/30'
+                        }`}
+                      >
+                        {area}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Target Audience / Gender */}
+                <div>
+                  <h4 className="text-[14px] font-bold text-[#26181c] mb-3">Target Audience</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {audienceOptions.map(audience => (
+                      <button
+                        key={audience}
+                        onClick={() => setFilterAudience(audience)}
+                        className={`px-3 py-1.5 rounded-full text-[13px] font-semibold transition-all cursor-pointer ${
+                          filterAudience === audience
+                            ? 'bg-[#e6007e] text-white shadow-md'
+                            : 'bg-[#fcf9f8] text-[#5a3f47] border border-[#e8e8e8] hover:border-[#e6007e]/30'
+                        }`}
+                      >
+                        {audience}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Distance Filter */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-[14px] font-bold text-[#26181c]">Distance Radius</h4>
+                    <span className="text-[13px] font-semibold text-[#e6007e]">Up to {filterRadius} km</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {radiusOptions.map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setFilterRadius(r)}
+                        className={`px-3 py-1.5 rounded-full text-[13px] font-semibold transition-all cursor-pointer ${
+                          filterRadius === r
+                            ? 'bg-[#e6007e] text-white shadow-md'
+                            : 'bg-[#fcf9f8] text-[#5a3f47] border border-[#e8e8e8] hover:border-[#e6007e]/30'
+                        }`}
+                      >
+                        {r} km
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sort Filter */}
+                <div>
+                  <h4 className="text-[14px] font-bold text-[#26181c] mb-3">Sort By</h4>
+                  <div className="flex flex-col gap-2">
+                    {sortOptions.map(option => (
+                      <button
+                        key={option}
+                        onClick={() => setSortBy(option)}
+                        className={`flex-1 py-2.5 px-4 rounded-xl text-[13px] font-semibold transition-all cursor-pointer text-left flex justify-between items-center ${
+                          sortBy === option
+                            ? 'bg-[#fff0f2] border border-[#e6007e] text-[#e6007e]'
+                            : 'bg-[#fcf9f8] text-[#5a3f47] border border-[#e8e8e8] hover:border-[#e6007e]/30'
+                        }`}
+                      >
+                        {option}
+                        {sortBy === option && <span className="material-symbols-outlined text-[18px]">check</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="p-4 border-t border-[#e8e8e8] flex gap-3 bg-white">
+                <button
+                  onClick={() => {
+                    setFilterRadius(30);
+                    setSortBy('Default');
+                    setFilterArea('All');
+                    setFilterAudience('All');
+                  }}
+                  className="flex-1 py-3 bg-[#fcf9f8] text-[#5a3f47] font-bold rounded-xl border border-[#e8e8e8] hover:bg-[#fde7f3] hover:text-[#e6007e] transition-colors cursor-pointer"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="flex-1 py-3 bg-[#e6007e] text-white font-bold rounded-xl shadow-md hover:bg-[#c9006e] transition-colors cursor-pointer"
+                >
+                  Show Results ({filteredSalons.length})
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

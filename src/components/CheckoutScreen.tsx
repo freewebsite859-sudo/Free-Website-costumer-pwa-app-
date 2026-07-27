@@ -14,7 +14,9 @@ interface CheckoutScreenProps {
     dateStr: string;
     timeSlot: string;
     staffName?: string;
-  }) => void;
+    status?: 'CONFIRMED' | 'payment_pending';
+    bookingId?: string;
+  }, onSuccess?: () => void) => void;
   onBack: () => void;
 }
 
@@ -119,24 +121,22 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       const isSignatureVerified = confirm('Simulating Razorpay signature verification. Click OK to verify and confirm, or Cancel to fail.');
       
       if (isSignatureVerified) {
-        // Here we should update the booking status.
-        // Since onConfirmBooking just adds to state, we might need a way to update it.
-        // Actually, the requirements are: "After successful backend verification, show: Booking Confirmed!"
-        // I will just trigger the confirmed modal here.
-        // Actually, the requirements say "Open the Booking Confirmed screen".
-        // onConfirmBooking in App.tsx shows the modal.
-        // So I should call onConfirmBooking with 'CONFIRMED' status?
-        // Yes, that will create a new booking which might be duplication if not handled carefully,
-        // but given the app's current implementation, this seems to be the way.
-        onConfirmBooking({
-          salon,
-          services: selectedServices,
-          totalAmount: totalPrice,
-          dateStr: activeDateObj.fullDate,
-          timeSlot: selectedTimeSlot,
-          staffName: selectedStaff?.name,
-          status: 'CONFIRMED',
-        });
+        if (pendingBooking) {
+            alert('Payment successful! Thank you for your booking.');
+            onConfirmBooking({
+              salon,
+              services: selectedServices,
+              totalAmount: totalPrice,
+              dateStr: activeDateObj.fullDate,
+              timeSlot: selectedTimeSlot,
+              staffName: selectedStaff?.name,
+              status: 'CONFIRMED',
+              bookingId: pendingBooking.id
+            }, () => {
+                // This callback will be handled by App.tsx
+                console.log('Payment successful, navigating away');
+            });
+        }
       } else {
         alert('Payment Verification Failed\n\nYour booking has not been confirmed.');
       }

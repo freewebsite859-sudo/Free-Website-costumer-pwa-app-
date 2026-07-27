@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Salon, Service, Staff } from '../types';
+import { BookingSummarySkeleton } from './Skeleton';
 
 interface PaymentScreenProps {
   salon: Salon;
@@ -23,6 +24,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   onBack
 }) => {
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<'summary' | 'qr' | 'processing' | 'success'>('summary');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 400);
+    return () => clearTimeout(timer);
+  }, []);
+
   const taxes = 50; // Mock taxes
   const finalTotal = totalPrice + taxes;
   const advanceAmount = Math.round(finalTotal * 0.25);
@@ -30,8 +39,52 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   const handlePayAndConfirm = () => {
     if (!termsAccepted) return;
-    onConfirm();
+    setPaymentStep('qr');
   };
+
+  const simulatePayment = () => {
+    setPaymentStep('processing');
+    setTimeout(() => {
+        setPaymentStep('success');
+        setTimeout(() => {
+            onConfirm();
+            // Reset step for potential future re-renders
+            setPaymentStep('summary');
+        }, 1500);
+    }, 2000);
+  };
+
+  if (paymentStep === 'qr') {
+      return (
+          <div className="flex flex-col items-center justify-center min-h-screen p-5 bg-white gap-6">
+              <h2 className="text-[20px] font-bold text-[#26181c]">Scan QR to Pay ₹{advanceAmount}</h2>
+              <div className="w-64 h-64 bg-slate-100 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-300">
+                  <span className="material-symbols-outlined text-[64px] text-slate-400">qr_code_2</span>
+              </div>
+              <button onClick={simulatePayment} className="w-full h-[52px] bg-[#e6007e] text-white rounded-xl font-semibold">
+                  I have paid via QR
+              </button>
+          </div>
+      );
+  }
+
+  if (paymentStep === 'processing') {
+      return (
+          <div className="flex flex-col items-center justify-center min-h-screen p-5 bg-white">
+              <span className="material-symbols-outlined text-[48px] text-[#e6007e] animate-spin">refresh</span>
+              <p className="text-[16px] font-medium text-[#26181c] mt-4">Verifying payment...</p>
+          </div>
+      );
+  }
+
+  if (paymentStep === 'success') {
+      return (
+          <div className="flex flex-col items-center justify-center min-h-screen p-5 bg-white">
+              <span className="material-symbols-outlined text-[48px] text-emerald-500">check_circle</span>
+              <p className="text-[16px] font-medium text-[#26181c] mt-4">Payment Successful!</p>
+          </div>
+      );
+  }
 
   return (
     <div className="flex flex-col w-full relative min-h-screen bg-[#fff8f8]">
@@ -59,9 +112,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
       <main className="relative w-full pt-16 pb-32 bg-[#fff8f8] min-h-screen">
         <div className="flex flex-col w-full px-5 gap-8">
-          
-          {/* Order Summary Bento Grid */}
-          <section className="flex flex-col gap-2 mt-4">
+          {isLoading ? (
+            <div className="mt-4"><BookingSummarySkeleton /></div>
+          ) : (
+            <>
+              {/* Order Summary Bento Grid */}
+              <section className="flex flex-col gap-2 mt-4">
             <h2 className="text-[20px] font-semibold text-[#26181c] mb-2">Booking Summary</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               
@@ -147,18 +203,29 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               </div>
             </div>
           </section>
+            </>
+          )}
         </div>
       </main>
 
-      <footer className="fixed bottom-0 inset-x-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-[#e8e8e8] pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)] max-w-md mx-auto">
-        <div className="p-5 flex justify-between items-center">
-          <span className="text-[13px] font-medium text-[#5a3f47]">Total Amount: <span className="text-[18px] font-semibold text-[#26181c]">₹{finalTotal}</span></span>
-          <div className="text-[12px] text-[#5a3f47] flex items-center gap-1">
-             <span className="material-symbols-outlined text-[14px]">verified_user</span>
-             Secure payment through Razorpay
+      {!isLoading && (
+        <footer className="fixed bottom-0 inset-x-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-[#e8e8e8] pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)] max-w-md mx-auto">
+          <div className="p-5 flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <span className="text-[13px] font-medium text-[#5a3f47]">Total Amount</span>
+              <span className="text-[18px] font-semibold text-[#26181c]">₹{finalTotal}</span>
+            </div>
+            <button 
+              onClick={handlePayAndConfirm}
+              disabled={!termsAccepted}
+              className={`w-full h-[52px] rounded-xl font-semibold text-[18px] flex items-center justify-center gap-2 transition-transform shadow-lg ${termsAccepted ? 'bg-[#e6007e] text-white shadow-[#e6007e]/20 active:scale-[0.98]' : 'bg-[#e0bec6] text-[#5a3f47] cursor-not-allowed shadow-none'}`}
+            >
+              <span className="material-symbols-outlined text-[20px]">lock</span>
+              Pay ₹{advanceAmount} & Confirm Booking
+            </button>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 };

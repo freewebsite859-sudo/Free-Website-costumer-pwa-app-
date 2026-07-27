@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Salon } from '../types';
+import { SalonCardSkeleton } from './Skeleton';
 
 interface SearchScreenProps {
   salons: Salon[];
@@ -17,10 +18,22 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   onSelectSalon,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('Hair spa');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('All');
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number>(5000);
+  const [selectedMinRating, setSelectedMinRating] = useState<number>(0);
+  const [selectedDistance, setSelectedDistance] = useState<number>(10);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showMapView, setShowMapView] = useState<boolean>(false);
   const [activeSalonOnMap, setActiveSalonOnMap] = useState<Salon | null>(null);
+
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedGenderFilter, selectedMaxPrice, selectedMinRating, selectedDistance]);
 
   const filteredSalons = salons.filter((s) => {
     const q = searchQuery.toLowerCase();
@@ -37,8 +50,10 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
       s.genderCategory === selectedGenderFilter;
 
     const matchesPrice = s.startingPrice <= selectedMaxPrice;
+    const matchesRating = s.rating >= selectedMinRating;
+    const matchesDistance = s.distanceKm <= selectedDistance;
 
-    return matchesSearch && matchesGender && matchesPrice;
+    return matchesSearch && matchesGender && matchesPrice && matchesRating && matchesDistance;
   });
 
   return (
@@ -66,47 +81,114 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
           )}
         </div>
 
-        {/* Horizontal Filters Scroll */}
-        <div className="flex overflow-x-auto gap-2 pb-1 -mx-5 px-5 hide-scrollbar">
+        {/* Simple Filter Toggle */}
+        <div className="flex gap-2">
           <button
-            onClick={() => {
-              setSelectedGenderFilter('All');
-              setSelectedMaxPrice(5000);
-            }}
-            className="flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-[#ffe8ed] border border-[#e0bec6] text-[#26181c] text-[13px] font-semibold whitespace-nowrap active:scale-95 transition-all hover:bg-[#f6dce2]"
-          >
-            <span className="material-symbols-outlined text-[16px]">tune</span>
-            Filters
-          </button>
-
-          <button
-            onClick={() =>
-              setSelectedGenderFilter((prev) =>
-                prev === 'Women Only' ? 'Unisex' : prev === 'Unisex' ? 'All' : 'Women Only'
-              )
-            }
-            className={`flex items-center gap-1 px-3.5 h-9 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all ${
-              selectedGenderFilter !== 'All'
-                ? 'bg-[#e6007e] text-white shadow-sm'
-                : 'bg-[#ffe8ed] border border-[#e0bec6] text-[#26181c] hover:bg-[#f6dce2]'
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center justify-center gap-1.5 flex-1 h-10 rounded-xl font-bold text-[13px] transition-all ${
+              showFilters ? 'bg-[#26181c] text-white' : 'bg-white border border-[#e8e8e8] text-[#26181c]'
             }`}
           >
-            Gender: {selectedGenderFilter}
-            <span className="material-symbols-outlined text-[16px]">keyboard_arrow_down</span>
-          </button>
-
-          <button
-            onClick={() => setSelectedMaxPrice((prev) => (prev === 5000 ? 1500 : 5000))}
-            className={`flex items-center gap-1 px-3.5 h-9 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all ${
-              selectedMaxPrice < 5000
-                ? 'bg-[#e6007e] text-white shadow-sm'
-                : 'bg-[#ffe8ed] border border-[#e0bec6] text-[#26181c] hover:bg-[#f6dce2]'
-            }`}
-          >
-            Price: {selectedMaxPrice < 5000 ? 'Under ₹1,500' : 'All'}
-            <span className="material-symbols-outlined text-[16px]">keyboard_arrow_down</span>
+            <span className="material-symbols-outlined text-[18px]">tune</span>
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
           </button>
         </div>
+
+        {/* Expandable Filter Panel */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-white border border-[#e8e8e8] rounded-2xl p-4 flex flex-col gap-4">
+                <div>
+                  <p className="text-[12px] font-bold text-[#5a3f47] mb-2">Gender</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['All', 'Women Only', 'Men Only', 'Unisex'].map(g => (
+                      <button
+                        key={g}
+                        onClick={() => setSelectedGenderFilter(g)}
+                        className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all ${
+                          selectedGenderFilter === g ? 'bg-[#e6007e] text-white' : 'bg-[#f6dce2] text-[#5a3f47]'
+                        }`}
+                      >
+                        {g === 'Women Only' ? 'Women' : g === 'Men Only' ? 'Men' : g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[12px] font-bold text-[#5a3f47] mb-2 flex justify-between">
+                    <span>Max Price</span>
+                    <span>₹{selectedMaxPrice}</span>
+                  </p>
+                  <input
+                    type="range"
+                    min="500"
+                    max="5000"
+                    step="500"
+                    value={selectedMaxPrice}
+                    onChange={(e) => setSelectedMaxPrice(Number(e.target.value))}
+                    className="w-full accent-[#e6007e]"
+                  />
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <p className="text-[12px] font-bold text-[#5a3f47] mb-2">Rating</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[0, 4.0, 4.5].map(r => (
+                        <button
+                          key={r}
+                          onClick={() => setSelectedMinRating(r)}
+                          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all flex items-center gap-1 ${
+                            selectedMinRating === r ? 'bg-[#e6007e] text-white' : 'bg-[#f6dce2] text-[#5a3f47]'
+                          }`}
+                        >
+                          {r === 0 ? 'Any' : `${r}+`}
+                          {r > 0 && <span className="material-symbols-outlined text-[12px]">star</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-[12px] font-bold text-[#5a3f47] mb-2">Distance</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[2, 5, 10].map(d => (
+                        <button
+                          key={d}
+                          onClick={() => setSelectedDistance(d)}
+                          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all ${
+                            selectedDistance === d ? 'bg-[#e6007e] text-white' : 'bg-[#f6dce2] text-[#5a3f47]'
+                          }`}
+                        >
+                          &lt; {d} km
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedGenderFilter('All');
+                    setSelectedMaxPrice(5000);
+                    setSelectedMinRating(0);
+                    setSelectedDistance(10);
+                  }}
+                  className="mt-2 w-full h-10 bg-[#fde7f3] text-[#e6007e] rounded-xl font-bold text-[13px] active:scale-95 transition-all"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Results Header */}
@@ -119,108 +201,114 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
 
       {/* Results List */}
       <div className="flex flex-col gap-5">
-        {filteredSalons.map((salon) => {
-          const isFav = favorites.includes(salon.id);
-          return (
-            <div
-              key={salon.id}
-              className="flex flex-col bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden border border-[#e8e8e8]"
-            >
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => <SalonCardSkeleton key={i} />)
+        ) : filteredSalons.length > 0 ? (
+          filteredSalons.map((salon) => {
+            const isFav = favorites.includes(salon.id);
+            return (
               <div
-                className="relative h-44 w-full bg-[#f6dce2] cursor-pointer"
-                onClick={() => onSelectSalon(salon)}
+                key={salon.id}
+                className="flex flex-col bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden border border-[#e8e8e8]"
               >
-                <img
-                  src={salon.image}
-                  alt={salon.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                  <span className="material-symbols-outlined text-[14px] text-[#e6007e]">
-                    star
-                  </span>
-                  <span className="text-[13px] font-bold text-[#26181c]">{salon.rating}</span>
-                  <span className="text-[11px] font-medium text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount})</span>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFavorite(salon.id);
-                  }}
-                  className="absolute top-3 left-3 w-9 h-9 rounded-full bg-white/95 backdrop-blur-md flex items-center justify-center text-[#8c7077] shadow-sm hover:text-[#e6007e]"
-                >
-                  <span className={`material-symbols-outlined text-[20px] ${isFav ? 'text-[#e6007e] fill-current' : ''}`}>
-                    favorite
-                  </span>
-                </button>
-              </div>
-
-              <div className="p-4 flex flex-col gap-3">
-                <div className="flex justify-between items-start gap-4">
-                  <div>
-                    <h3
-                      onClick={() => onSelectSalon(salon)}
-                      className="text-[18px] font-bold text-[#26181c] cursor-pointer hover:text-[#e6007e]"
-                    >
-                      {salon.name}
-                    </h3>
-                    <p className="text-[14px] text-[#5a3f47] font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span>{salon.area} • {salon.distanceKm} km</span>
-                      <span className="text-[#e0bec6]">•</span>
-                      <span className="inline-flex items-center gap-0.5 text-[#26181c] font-semibold text-[13px]">
-                        <span className="material-symbols-outlined text-[15px] text-amber-500 fill-current">star</span>
-                        {salon.rating}
-                        <span className="text-[12px] font-normal text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount} reviews)</span>
-                      </span>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] text-[#5a3f47] font-medium">Starting from</p>
-                    <p className="text-[18px] font-bold text-[#e6007e]">₹{salon.startingPrice}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {salon.genderCategory && (
-                    <span className="px-2.5 py-0.5 rounded-md bg-[#fde7f3] text-[#e6007e] text-[11px] font-semibold">
-                      {salon.genderCategory}
-                    </span>
-                  )}
-                  {salon.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="px-2 py-0.5 rounded-md bg-[#f6dce2] text-[#5a3f47] text-[11px] font-medium"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-
-                <button
+                <div
+                  className="relative h-44 w-full bg-[#f6dce2] cursor-pointer"
                   onClick={() => onSelectSalon(salon)}
-                  className="mt-1 w-full h-11 bg-[#8e004b] text-white rounded-xl text-[14px] font-semibold shadow-sm hover:bg-[#e6007e] transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
-                  Book Now
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          );
-        })}
+                  <img
+                    src={salon.image}
+                    alt={salon.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                    <span className="material-symbols-outlined text-[14px] text-[#e6007e]">
+                      star
+                    </span>
+                    <span className="text-[13px] font-bold text-[#26181c]">{salon.rating}</span>
+                    <span className="text-[11px] font-medium text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount})</span>
+                  </div>
 
-        {filteredSalons.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl p-6">
-            <p className="font-semibold text-[#26181c]">No results matching criteria</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite(salon.id);
+                    }}
+                    className="absolute top-3 left-3 w-9 h-9 rounded-full bg-white/95 backdrop-blur-md flex items-center justify-center text-[#8c7077] shadow-sm hover:text-[#e6007e]"
+                  >
+                    <span className={`material-symbols-outlined text-[20px] ${isFav ? 'text-[#e6007e] fill-current' : ''}`}>
+                      favorite
+                    </span>
+                  </button>
+                </div>
+
+                <div className="p-4 flex flex-col gap-3">
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <h3
+                        onClick={() => onSelectSalon(salon)}
+                        className="text-[18px] font-bold text-[#26181c] cursor-pointer hover:text-[#e6007e]"
+                      >
+                        {salon.name}
+                      </h3>
+                      <p className="text-[14px] text-[#5a3f47] font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span>{salon.area} • {salon.distanceKm} km</span>
+                        <span className="text-[#e0bec6]">•</span>
+                        <span className="inline-flex items-center gap-0.5 text-[#26181c] font-semibold text-[13px]">
+                          <span className="material-symbols-outlined text-[15px] text-amber-500 fill-current">star</span>
+                          {salon.rating}
+                          <span className="text-[12px] font-normal text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount} reviews)</span>
+                        </span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-[#5a3f47] font-medium">Starting from</p>
+                      <p className="text-[18px] font-bold text-[#e6007e]">₹{salon.startingPrice}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {salon.genderCategory && (
+                      <span className="px-2.5 py-0.5 rounded-md bg-[#fde7f3] text-[#e6007e] text-[11px] font-semibold">
+                        {salon.genderCategory}
+                      </span>
+                    )}
+                    {salon.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="px-2 py-0.5 rounded-md bg-[#f6dce2] text-[#5a3f47] text-[11px] font-medium"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => onSelectSalon(salon)}
+                    className="mt-1 w-full h-11 bg-[#8e004b] text-white rounded-xl text-[14px] font-semibold shadow-sm hover:bg-[#e6007e] transition-all flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    Book Now
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 bg-white rounded-2xl p-6 border border-[#e8e8e8]">
+            <span className="material-symbols-outlined text-[48px] text-[#e0bec6] mb-3">search_off</span>
+            <p className="font-bold text-[#26181c] text-[16px]">No salons found</p>
+            <p className="text-[#5a3f47] text-[13px] mt-1 mb-4">Try adjusting your filters to find what you're looking for.</p>
             <button
               onClick={() => {
                 setSearchQuery('');
                 setSelectedGenderFilter('All');
                 setSelectedMaxPrice(5000);
+                setSelectedMinRating(0);
+                setSelectedDistance(10);
               }}
-              className="mt-3 text-xs text-[#e6007e] font-semibold underline"
+              className="h-10 px-6 bg-[#e6007e] text-white rounded-xl font-bold text-[13px] active:scale-95 transition-all"
             >
-              Clear filters
+              Reset Filters
             </button>
           </div>
         )}

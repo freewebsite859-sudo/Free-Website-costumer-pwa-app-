@@ -107,6 +107,12 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
   const [redeemedDiscount, setRedeemedDiscount] = useState<number | null>(null);
   const [redeemedPointsSpent, setRedeemedPointsSpent] = useState<number>(0);
 
+  // Expiring Rewards
+  const [expiringRewards] = useState([
+    { id: 'exp-1', name: '20% off Facials', expiryDate: '2 Days' },
+    { id: 'exp-2', name: 'Free Express Hair Styling', expiryDate: '1 Week' },
+  ]);
+
   // Leaderboard State
   const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'all_time' | 'this_month' | 'weekly'>('all_time');
 
@@ -317,7 +323,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
     setBonusReferralPoints((prev) => prev + newBonus);
     setSimulatedFriendName('');
     setShowSimulateModal(false);
-    triggerToast(`🎉 ${friendName} signed up using your link! You earned +500 Glow Points!`);
+    triggerToast(`🎉 ${friendName} signed up using your link! You both earned +500 Glow Points!`);
   };
 
   const generateNewCode = () => {
@@ -391,7 +397,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
             </span>
             {nextTier ? (
               <span className="text-white/90 font-bold">
-                {bookingsNeeded} {bookingsNeeded === 1 ? 'booking' : 'bookings'} to {nextTier.name.split(' ')[0]}
+                Progress toward {nextTier.name.replace('Tier', 'Elite')} ({bookingsNeeded} more)
               </span>
             ) : (
               <span className="text-amber-200 font-bold flex items-center gap-1">
@@ -441,6 +447,20 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
         </div>
       </div>
 
+      {/* Upcoming Expiry Section */}
+      <section className="bg-white rounded-[24px] p-5 border border-red-100 shadow-sm flex flex-col gap-3">
+        <h3 className="text-[15px] font-bold text-[#26181c] flex items-center gap-2">
+           <span className="material-symbols-outlined text-red-500 text-[18px]">alarm</span>
+           Upcoming Expiry
+        </h3>
+        {expiringRewards.map(reward => (
+          <div key={reward.id} className="flex justify-between items-center text-xs p-3 bg-red-50/50 rounded-xl border border-red-100">
+             <span className="font-semibold text-red-900">{reward.name}</span>
+             <span className="font-bold text-red-600">Expires in {reward.expiryDate}</span>
+          </div>
+        ))}
+      </section>
+
       {/* GLOW CHAMPIONS LEADERBOARD SECTION */}
       <section className="bg-white rounded-[24px] p-5 border border-[#f0d8e2] shadow-md flex flex-col gap-4">
         {/* Header Title & Filter Tabs */}
@@ -462,10 +482,10 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
           </div>
 
           {/* Timeframe Filter Tabs */}
-          <div className="flex items-center gap-1 bg-[#f8eff3] p-1 rounded-xl border border-[#ebd2de] self-start sm:self-auto">
+          <div className="flex items-center justify-between sm:justify-start gap-1 bg-[#f8eff3] p-1 rounded-xl border border-[#ebd2de] w-full sm:w-auto overflow-x-auto">
             <button
               onClick={() => setLeaderboardTimeframe('all_time')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap text-center ${
                 leaderboardTimeframe === 'all_time'
                   ? 'bg-[#e6007e] text-white shadow-2xs'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
@@ -475,7 +495,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
             </button>
             <button
               onClick={() => setLeaderboardTimeframe('this_month')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap text-center ${
                 leaderboardTimeframe === 'this_month'
                   ? 'bg-[#e6007e] text-white shadow-2xs'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
@@ -485,7 +505,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
             </button>
             <button
               onClick={() => setLeaderboardTimeframe('weekly')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap text-center ${
                 leaderboardTimeframe === 'weekly'
                   ? 'bg-[#e6007e] text-white shadow-2xs'
                   : 'text-[#5a3f47] hover:text-[#26181c]'
@@ -670,7 +690,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
                 </span>
               </div>
               <p className="text-[12px] text-[#5a3f47]">
-                Earn <span className="font-bold text-[#e6007e]">500 Glow Points</span> for each friend who joins & books!
+                You <span className="font-bold text-[#e6007e]">both get 500 points</span> when they book their first appointment!
               </p>
             </div>
           </div>
@@ -973,7 +993,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) =
 
             <p className="text-xs text-[#5a3f47] mb-4">
               Test the referral flow! Enter a friend's name who signed up using link{' '}
-              <span className="font-mono text-[#8e004b]">{userReferralCode}</span> to claim your +500 bonus points.
+              <span className="font-mono text-[#8e004b]">{userReferralCode}</span> to simulate a booking. Both of you will get +500 points!
             </p>
 
             <form onSubmit={handleSimulateFriendSignup} className="space-y-4">

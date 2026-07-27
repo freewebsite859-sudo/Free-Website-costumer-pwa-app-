@@ -101,6 +101,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isReferEarnOpen, setIsReferEarnOpen] = useState(false);
   const [isMembershipOpen, setIsMembershipOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isFaqOpen, setIsFaqOpen] = useState(false);
   const [isPolicyOpen, setIsPolicyOpen] = useState(false);
@@ -108,6 +109,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+
+  // Feedback State
+  const [feedbackRating, setFeedbackRating] = useState<number>(0);
+  const [feedbackText, setFeedbackText] = useState<string>('');
+
+  const handleSubmitFeedback = () => {
+    if (feedbackRating === 0) {
+      triggerToast('Please select a star rating.');
+      return;
+    }
+    // Simple local storage persistence
+    const newFeedback = {
+      id: Date.now(),
+      rating: feedbackRating,
+      text: feedbackText,
+      date: new Date().toISOString()
+    };
+    const existing = JSON.parse(localStorage.getItem('nexora_feedback') || '[]');
+    localStorage.setItem('nexora_feedback', JSON.stringify([newFeedback, ...existing]));
+
+    setIsFeedbackOpen(false);
+    setFeedbackRating(0);
+    setFeedbackText('');
+    triggerToast('Thank you for your feedback!');
+  };
 
   // Saved Addresses State
   const [isAddressesOpen, setIsAddressesOpen] = useState(false);
@@ -222,6 +249,33 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
     setIsEditOpen(false);
     triggerToast('Profile updated successfully!');
+  };
+
+  // Referral and Profile Deep-Link generation
+  const referralCode = `${name.toUpperCase().replace(/\s+/g, '')}150`;
+  const profileDeepLink = `${window.location.origin}/?user=${encodeURIComponent(name)}&tier=Gold&ref=${referralCode}`;
+
+  const handleShareProfile = async () => {
+    const shareData = {
+      title: `${name}'s Nexora Beauty Passport`,
+      text: `Check out ${name}'s Gold Member status on Nexora Beauty! Use referral code "${referralCode}" for ₹150 off your first appointment:`,
+      url: profileDeepLink,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        triggerToast('Profile & referral card shared successfully!');
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          navigator.clipboard?.writeText(`${shareData.text} ${shareData.url}`);
+          triggerToast('Profile deep-link copied to clipboard!');
+        }
+      }
+    } else {
+      navigator.clipboard?.writeText(`${shareData.text} ${shareData.url}`);
+      triggerToast('Profile deep-link & referral code copied to clipboard!');
+    }
   };
 
   // Handler for sending mock support messages
@@ -362,6 +416,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Quick stats calculations
   const upcomingCount = bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'PENDING').length;
+
+  // Nexora Points Calculation (10 points per 100 spent = 1 point per 10)
+  const totalSpent = bookings
+    .filter((b) => b.status === 'PAST' || b.status === 'COMPLETED')
+    .reduce((acc, curr) => acc + curr.totalAmount, 0);
+  const nexoraPoints = Math.floor(totalSpent / 10);
 
   // Preset premium avatars to choose from
   const PRESET_AVATARS = [
@@ -514,13 +574,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <div className="flex items-center justify-between text-[#e6007e] mb-0.5">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">stars</span>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider">Reward Cash</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">Nexora Points</span>
               </div>
               <span className="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span>
             </div>
-            <p className="text-[13px] font-bold text-[#26181c]">₹500 / 1,200 pts</p>
+            <p className="text-[13px] font-bold text-[#26181c]">{nexoraPoints.toLocaleString()} pts</p>
           </button>
         </div>
+
+        {/* Share Profile Banner Button */}
+        <button
+          onClick={() => setIsShareModalOpen(true)}
+          className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#fde7f3] via-[#fff0f2] to-[#fde7f3] hover:from-[#e6007e] hover:to-[#b90064] text-[#e6007e] hover:text-white border border-[#fcd5e8] font-bold text-xs flex items-center justify-between transition-all shadow-2xs active:scale-[0.99] cursor-pointer group"
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">ios_share</span>
+            <span>Share Profile & Referral Link</span>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 group-hover:bg-white/20 text-[#26181c] group-hover:text-white border border-[#fcd5e8]/50 group-hover:border-white/30">
+            {referralCode}
+          </span>
+        </button>
       </div>
 
       {/* Quick Stats Grid */}
@@ -592,6 +666,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               label="Refer & Earn"
               badge="₹150 Free"
               onClick={() => setIsReferEarnOpen(true)}
+            />
+            <MenuItem
+              icon="ios_share"
+              label="Share Profile Card"
+              badge="Deep Link"
+              onClick={() => setIsShareModalOpen(true)}
             />
             <MenuItem
               icon="card_membership"
@@ -685,6 +765,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               icon="info"
               label="About Nexora"
               onClick={() => setIsAboutOpen(true)}
+            />
+            <MenuItem
+              icon="reviews"
+              label="App Feedback"
+              onClick={() => setIsFeedbackOpen(true)}
             />
           </div>
         </div>
@@ -782,14 +867,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="flex flex-col gap-4 max-h-[50vh] overflow-y-auto pr-1 no-scrollbar">
             
             {/* Basic Info Card */}
-            <div className="bg-[#fff8f8] rounded-2xl p-4 border border-[#e0bec6]/40 flex flex-col gap-4 relative overflow-hidden">
+            <div className="bg-[#fff8f8] rounded-2xl p-4 border border-[#e0bec6]/40 flex flex-col gap-4 relative overflow-hidden w-full">
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-[#ffd9e2] to-transparent opacity-20 rounded-full blur-2xl pointer-events-none"></div>
               
               {/* Full Name */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-bold text-[#594047] ml-1" htmlFor="fullName">Full Name</label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8c7077] text-[20px] pointer-events-none">person</span>
+              <div className="flex flex-col gap-1.5 w-full">
+                <label className="text-[12px] font-bold text-[#594047] ml-1 block w-full" htmlFor="fullName">Full Name</label>
+                <div className="relative flex items-center w-full">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c7077] text-[20px] pointer-events-none z-10">person</span>
                   <input
                     id="fullName"
                     type="text"
@@ -800,7 +885,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         setNameError(null);
                       }
                     }}
-                    className={`w-full h-12 bg-white text-[14px] text-[#26181c] rounded-xl pl-10 pr-4 py-2 border focus:outline-none focus:ring-2 focus:ring-[#b90064] transition-all ${
+                    className={`w-full h-12 bg-white text-[14px] font-medium text-[#26181c] rounded-xl pl-11 pr-4 py-2.5 border focus:outline-none focus:ring-2 focus:ring-[#b90064] transition-all box-border ${
                       nameError ? 'border-red-500 ring-2 ring-red-100' : 'border-[#e8e8e8]'
                     }`}
                     placeholder="e.g. Priya Sharma"
@@ -996,6 +1081,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         </div>
       </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </Modal>
 
       {/* Modal 2: Refer & Earn */}
       <Modal isOpen={isReferEarnOpen} onClose={() => setIsReferEarnOpen(false)} title="Refer & Earn">
@@ -1048,6 +1164,133 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       </Modal>
 
+      {/* Modal: Share Profile Card */}
+      <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Share Profile Card">
+        <div className="flex flex-col gap-4 items-center text-center">
+          {/* Card Visual Preview */}
+          <div className="w-full bg-gradient-to-br from-[#26181c] via-[#3a2028] to-[#1a0e12] p-5 rounded-2xl text-white shadow-xl relative overflow-hidden border border-[#e6007e]/30">
+            {/* Background Glow */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#e6007e]/30 to-transparent rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-[#e6007e]/20 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[20px] text-[#e6007e]">auto_awesome</span>
+                <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#ffb0c8]">Nexora Beauty Passport</span>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#e6007e]/20 text-[#ffb0c8] text-[10px] font-extrabold border border-[#e6007e]/40">
+                ★ Gold Member
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3.5 text-left mb-4">
+              <img
+                src={avatar}
+                alt={name}
+                className="w-14 h-14 rounded-full object-cover border-2 border-[#e6007e] shadow-md"
+              />
+              <div className="flex-1 min-w-0">
+                <h4 className="text-[16px] font-extrabold text-white truncate">{name}</h4>
+                <p className="text-[11px] text-[#ffb0c8] flex items-center gap-1 mt-0.5">
+                  <span className="material-symbols-outlined text-[13px]">location_on</span>
+                  {preferredArea}, {preferredCity.toUpperCase()}
+                </p>
+                <p className="text-[10px] text-white/70 mt-0.5">
+                  {nexoraPoints.toLocaleString()} Rewards Points Earning
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex items-center justify-between gap-2">
+              <div className="text-left">
+                <span className="text-[9px] uppercase font-extrabold text-[#ffb0c8] tracking-wider block">Exclusive Referral Offer</span>
+                <span className="text-[13px] font-bold text-white">₹150 Off First Booking</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-[#e6007e] text-white text-[12px] font-black tracking-wider uppercase shadow-xs">
+                {referralCode}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-xs text-[#5a3f47] leading-relaxed px-2">
+            Share your Nexora Beauty Passport & Gold Member status. Friends get <strong className="text-[#e6007e]">₹150 off</strong> on their first appointment when using your link!
+          </p>
+
+          {/* Deep Link Input Field */}
+          <div className="w-full flex items-center bg-[#fcf9f8] border border-[#e8e8e8] rounded-xl p-1.5 gap-2">
+            <span className="material-symbols-outlined text-[18px] text-[#8c7077] ml-2">link</span>
+            <input
+              type="text"
+              readOnly
+              value={profileDeepLink}
+              className="flex-1 text-[11px] font-mono text-[#26181c] bg-transparent focus:outline-none truncate"
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(profileDeepLink);
+                triggerToast('Deep-link copied to clipboard!');
+              }}
+              className="px-3 py-1.5 bg-[#fde7f3] text-[#e6007e] hover:bg-[#e6007e] hover:text-white font-bold text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap"
+            >
+              Copy Link
+            </button>
+          </div>
+
+          {/* Share Action Buttons */}
+          <div className="w-full grid grid-cols-2 gap-2 mt-1">
+            <button
+              onClick={handleShareProfile}
+              className="py-3 px-4 bg-[#e6007e] hover:bg-[#b90064] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">share</span>
+              Native Share
+            </button>
+
+            <button
+              onClick={() => {
+                const text = encodeURIComponent(`Check out my Nexora Beauty Passport! Use my referral code "${referralCode}" for ₹150 off your first salon appointment: ${profileDeepLink}`);
+                window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+              }}
+              className="py-3 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">chat</span>
+              WhatsApp
+            </button>
+          </div>
+        </div>
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </Modal>
+
       {/* Modal 3: Membership Tier Info */}
       <Modal isOpen={isMembershipOpen} onClose={() => setIsMembershipOpen(false)} title="Gold Passport Membership">
         <div className="flex flex-col gap-4">
@@ -1088,6 +1331,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </div>
             <p className="text-[10px] text-[#8c7077] mt-1 text-right">7 out of 10 milestone bookings completed this season.</p>
           </div>
+        </div>
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
         </div>
       </Modal>
 
@@ -1147,6 +1421,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
       </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </Modal>
 
       {/* Modal 5: FAQs */}
       <Modal isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} title="Frequently Asked Questions">
@@ -1170,6 +1475,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           ))}
         </div>
       </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </Modal>
 
       {/* Modal 6: Privacy Policy */}
       <Modal isOpen={isPolicyOpen} onClose={() => setIsPolicyOpen(false)} title="Privacy Policy">
@@ -1188,6 +1524,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </p>
         </div>
       </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </Modal>
 
       {/* Modal 7: Terms & Conditions */}
       <Modal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} title="Terms & Conditions">
@@ -1204,6 +1571,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <p>
             We guarantee salon menu price matching. If you are charged higher than our advertised pricing for the exact same salon treatment, Nexora will refund the difference instantly to your Rewards wallet.
           </p>
+        </div>
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
         </div>
       </Modal>
 
@@ -1230,6 +1628,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <p><strong>Environment:</strong> Production Cloud Run Sandbox</p>
             <p><strong>Client:</strong> {email}</p>
           </div>
+        </div>
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
         </div>
       </Modal>
 
@@ -1264,6 +1693,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               )}
             </button>
           ))}
+        </div>
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
         </div>
       </Modal>
 
@@ -1351,6 +1811,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             className="w-full h-11 bg-[#e6007e] hover:bg-[#b90064] text-white font-bold rounded-xl transition-all shadow-md mt-2 cursor-pointer"
           >
             Confirm Settings
+          </button>
+        </div>
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
           </button>
         </div>
       </Modal>
@@ -1646,6 +2137,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
           </div>
         )}
+      </Modal>
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="App Feedback">
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-[13px] text-[#5a3f47]">We'd love to hear your thoughts on Nexora. Your feedback helps us improve.</p>
+          <div className="flex justify-center gap-2 my-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFeedbackRating(star)}
+                className="transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <span className={`material-symbols-outlined text-[32px] ${feedbackRating >= star ? 'text-[#e6007e] fill-current' : 'text-[#e0bec6]'}`}>
+                  star
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Tell us what you love or what could be better..."
+            className="w-full h-32 p-3 bg-[#fff8f8] border border-[#e0bec6] rounded-xl text-[14px] text-[#26181c] placeholder:text-[#8c7077] focus:outline-none focus:border-[#e6007e] focus:ring-1 focus:ring-[#e6007e] resize-none transition-all"
+          />
+          <button
+            onClick={handleSubmitFeedback}
+            className="w-full h-12 bg-[#b90064] text-white font-bold rounded-xl shadow-md transition-all hover:bg-[#8e004b] active:scale-95 mt-2 cursor-pointer"
+          >
+            Submit Feedback
+          </button>
+        </div>
       </Modal>
 
     </div>

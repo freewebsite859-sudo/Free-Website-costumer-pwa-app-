@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from './lib/supabaseClient';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
   MOCK_SALONS,
@@ -24,8 +25,29 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { BookingConfirmationModal } from './components/BookingConfirmationModal';
 import { NotificationOverlay } from './components/NotificationOverlay';
 import { NotificationDrawer } from './components/NotificationDrawer';
+import { LoginScreen } from './components/auth/LoginScreen';
+import { SignUpScreen } from './components/auth/SignUpScreen';
 
 export default function App() {
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authScreen, setAuthScreen] = useState<'login' | 'signup'>('login');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [salons] = useState<Salon[]>(MOCK_SALONS);
   const [selectedSalon, setSelectedSalon] = useState<Salon>(MOCK_SALONS[0]);
@@ -224,8 +246,28 @@ export default function App() {
     timeSlot: string;
     staffName?: string;
     status?: 'CONFIRMED' | 'payment_pending';
-  }) => {
+    bookingId?: string;
+  }, onSuccess?: () => void) => {
     const status = bookingData.status || 'CONFIRMED';
+    
+    if (bookingData.bookingId) {
+       // Update existing
+       const existingBooking = bookings.find(b => b.id === bookingData.bookingId);
+       if (!existingBooking) return;
+       
+       const updatedBooking = { ...existingBooking, status: status };
+       setBookings((prev) => prev.map(b => b.id === bookingData.bookingId ? updatedBooking : b));
+       
+       if (status === 'CONFIRMED') {
+          setConfirmedModalBooking(updatedBooking);
+          setTimeout(() => {
+            if (updatedBooking) triggerPushNotificationForBooking(updatedBooking.id);
+          }, 1500);
+          if (onSuccess) onSuccess();
+       }
+       return updatedBooking;
+    }
+
     const newBooking: Booking = {
       id: `NX-${Math.floor(1000 + Math.random() * 9000)}`,
       salonId: bookingData.salon.id,
@@ -245,10 +287,18 @@ export default function App() {
     if (status === 'CONFIRMED') {
       setConfirmedModalBooking(newBooking);
 
+      // Simulate sending WhatsApp confirmation
+      setTimeout(() => {
+        console.log(`Sending WhatsApp confirmation to user for booking: ${newBooking.id}`);
+        alert(`WhatsApp Notification: Your booking at ${newBooking.salonName} is confirmed! (Booking ID: ${newBooking.id})`);
+      }, 500);
+
       // Auto-schedule preview push notification for new booking after 1.5 seconds
       setTimeout(() => {
         triggerPushNotificationForBooking(newBooking.id);
       }, 1500);
+      if (onSuccess) onSuccess();
+      setCurrentScreen('home');
     }
     
     return newBooking;
@@ -339,6 +389,16 @@ export default function App() {
     currentScreen === 'support' ||
     currentScreen === 'settings';
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+  if (!user) {
+    return authScreen === 'login' ? (
+      <LoginScreen onToggleAuth={() => setAuthScreen('signup')} />
+    ) : (
+      <SignUpScreen onToggleAuth={() => setAuthScreen('login')} />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#fff8f8] text-[#26181c] font-['Inter',sans-serif] relative flex flex-col justify-between">
@@ -437,6 +497,7 @@ export default function App() {
               onBack={() => setCurrentScreen('home')}
               isFavorite={favorites.includes(selectedSalon.id)}
               onToggleFavorite={() => handleToggleFavorite(selectedSalon.id)}
+              bookings={bookings}
             />
           )}
 
@@ -511,7 +572,10 @@ export default function App() {
             <SettingsScreen
               onBack={() => setCurrentScreen('profile')}
               onNavigate={(s) => setCurrentScreen(s)}
-              onLogout={() => setCurrentScreen('welcome')}
+              onLogout={() => {
+                supabase.auth.signOut();
+                setCurrentScreen('welcome');
+              }}
             />
           )}
 

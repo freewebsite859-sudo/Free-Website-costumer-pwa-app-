@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Salon, Service, Staff, ServiceReview, WaitlistEntry } from '../types';
+import { Salon, Service, Staff, ServiceReview, WaitlistEntry, Booking } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
 import { WaitlistModal } from './WaitlistModal';
+import { ServiceItemSkeleton, Skeleton } from './Skeleton';
 
 interface SalonDetailScreenProps {
   salon: Salon;
@@ -13,7 +14,35 @@ interface SalonDetailScreenProps {
   onBack: () => void;
   isFavorite: boolean;
   onToggleFavorite: () => void;
+  bookings: Booking[];
 }
+
+const DEFAULT_STYLISTS: Staff[] = [
+  {
+    id: 's1',
+    name: 'Maya S.',
+    role: 'Senior Stylist',
+    rating: 4.9,
+    reviewsCount: 84,
+    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB6FnEPu-SL4wCFVKcdUT8T3HAr4WTtQffHbnb-a1Q_KHmwlXmuuMexI_oX7VO3Ck7qecdPxZscnfPyNFROadrFDvlkX2aKpGC7DKv8u_kCOn8d2MGCISl3rqUL79jDHNAaMeiBfwgEUSzl-uZoz702Y0_08nr4fJCuUBFEAasK6fvfIalsfNsECYrq-GqF_jzTRNgR4lOYUXXnfcExQ5qPrfu7Tw6Sle-tPP-le3KXO-hb9dwZ-x-2wkRrIieKF0Y75ikYZ-xFPME',
+  },
+  {
+    id: 's2',
+    name: 'David L.',
+    role: 'Color Specialist',
+    rating: 4.8,
+    reviewsCount: 62,
+    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAym-1XqNvvUES_juaNcLK1p8qid6RxJWHmLyEsIlb7AZSTPL3DCcTaY--lrpsKfwZwtjvl2FDo7LyVmLuDZb5KGoPI2DvOGefWFzVJnsIXTM2NkLwCvN_xGTXmI3_23Le-KpVYYx4qmB4kzK9QGaBpL0uNx2cigDOD6i19c0NbGXmLIMKy3m7bC9xhY50Odkqojhl7HF4nT9FrV_K_3UJKBBfiUTYnIcThOzvvmaz4DyrB8m0nL0W3-kL4DbP7Oyz_grSdxlUlWHQ',
+  },
+  {
+    id: 's3',
+    name: 'Sarah K.',
+    role: 'Esthetician',
+    rating: 5.0,
+    reviewsCount: 120,
+    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB9RAhukgBLye8hQOojgrb3bjsb6PQ_GhdMufuidFvlJqxVZ_xINH0Fdc1_s8l0aKXMACAyJMrQquxZKVQXPbcPnysxo2AAatGH3nEL1rVhgI_0bjqpB9KoTtaO7uJwL42BWgx9jqqZT8lTENQn-lR5HjKB-qPHz60CkRRmoz6LOby9AqVT6YTIEvV8qGyGrD_9L7ajxDuE2iRaPMw8FOg6RbQvHBxMhsSz267is5uVRucT7hdBBpbaVJ93mQq5R3csJlGGpBtEazk',
+  },
+];
 
 export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   salon,
@@ -25,7 +54,41 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   onBack,
   isFavorite,
   onToggleFavorite,
+  bookings,
 }) => {
+  const availableStaff = React.useMemo(() => {
+    if (salon.staff && salon.staff.length >= 3) {
+      return salon.staff;
+    }
+    const existing = salon.staff || [];
+    const needed = DEFAULT_STYLISTS.filter(
+      (ds) => !existing.some((e) => e.name.toLowerCase().includes(ds.name.split(' ')[0].toLowerCase()) || e.id === ds.id)
+    );
+    return [...existing, ...needed].slice(0, 3);
+  }, [salon.staff]);
+
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [isLoadingPage, setIsLoadingPage] = useState(true);
+
+  const handleGetSuggestion = async () => {
+    setLoadingSuggestion(true);
+    try {
+      const response = await fetch('/api/suggest-times', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentHistory: bookings.filter(b => b.salonId === salon.id) })
+      });
+      const data = await response.json();
+      setSuggestion(data.suggestions);
+    } catch (error) {
+      console.error('Error getting suggestion', error);
+    } finally {
+      setLoadingSuggestion(false);
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<'services' | 'slots' | 'staff' | 'about' | 'reviews'>('services');
   const [activeGalleryIdx, setActiveGalleryIdx] = useState<number>(0);
 
@@ -43,6 +106,19 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   // Service Category Filter & Accordion States
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (activeTab === 'services') {
+      setIsLoadingServices(true);
+      const timer = setTimeout(() => setIsLoadingServices(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, selectedCategoryFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoadingPage(false), 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   const toggleCategoryCollapse = (cat: string) => {
     setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
@@ -282,8 +358,23 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
       </div>
 
       <div className="pt-20">
-        {/* Hero Gallery */}
-        <div className="relative w-full h-[280px] shrink-0 bg-[#e5e2e1] overflow-hidden">
+        {isLoadingPage ? (
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-[280px] w-full rounded-none" />
+            <div className="px-5 flex flex-col gap-4">
+              <Skeleton className="h-8 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-20 rounded-full" />
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-32 w-full mt-4" />
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Hero Gallery */}
+            <div className="relative w-full h-[280px] shrink-0 bg-[#e5e2e1] overflow-hidden">
           <img
             src={salon.gallery[activeGalleryIdx] || salon.image}
             alt={salon.name}
@@ -499,13 +590,16 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                         {/* Accordion Body / Services List */}
                         {!isCollapsed && (
                           <div className="p-4 pt-2 flex flex-col gap-3 border-t border-[#fce2e7]/40 bg-white">
-                            {catServices.map((service) => {
-                              const isSelected = selectedServices.some((s) => s.id === service.id);
-                              const stats = getServiceStats(service.name);
-                              return (
-                                <div
-                                  key={service.id}
-                                  className={`flex flex-col p-4 rounded-2xl border transition-all ${
+                            {isLoadingServices ? (
+                              Array.from({ length: catServices.length || 2 }).map((_, i) => <ServiceItemSkeleton key={i} />)
+                            ) : (
+                              catServices.map((service) => {
+                                const isSelected = selectedServices.some((s) => s.id === service.id);
+                                const stats = getServiceStats(service.name);
+                                return (
+                                  <div
+                                    key={service.id}
+                                    className={`flex flex-col p-4 rounded-2xl border transition-all ${
                                     isSelected
                                       ? 'border-[#e6007e] bg-[#fff0f2] shadow-xs'
                                       : 'border-slate-100 hover:border-[#fcd5e8] bg-slate-50/50'
@@ -565,7 +659,8 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                                   </div>
                                 </div>
                               );
-                            })}
+                            })
+                            )}
                           </div>
                         )}
                       </div>
@@ -588,6 +683,22 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                   Live Slots
                 </span>
               </div>
+              
+              {/* AI Suggestion Button */}
+              <button 
+                onClick={handleGetSuggestion}
+                disabled={loadingSuggestion}
+                className="w-full py-3 bg-[#26181c] text-white rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 hover:bg-[#402a30] active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+                {loadingSuggestion ? 'Analyzing...' : 'Get AI Time Suggestions'}
+              </button>
+              {suggestion && (
+                <div className="bg-[#fde7f3] text-[#26181c] p-4 rounded-2xl text-xs font-medium border border-[#fcd5e8]">
+                   <p className="font-bold mb-1">AI Recommendation:</p>
+                   {suggestion}
+                </div>
+              )}
 
               {/* Date Selector Pills */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -730,36 +841,65 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
           {/* Staff Tab */}
           {activeTab === 'staff' && (
             <div className="flex flex-col gap-4 animate-in fade-in">
-              <h3 className="text-[18px] font-bold text-[#26181c]">Select Preferred Stylist</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {salon.staff.map((member) => {
-                  const isChosen = selectedStaff?.id === member.id;
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#26181c]">Select Preferred Stylist</h3>
+                  <p className="text-[12px] text-[#5a3f47] font-medium">
+                    Choose a specialist for your service or request any available team member
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#fde7f3] text-[#e6007e] text-[11px] font-bold border border-[#fcd5e8]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#e6007e]" />
+                  3 Stylists Available
+                </span>
+              </div>
+
+              {/* Side-by-side 3-column grid layout across all screen sizes */}
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-4 w-full">
+                {availableStaff.map((member) => {
+                  const isChosen = selectedStaff?.id === member.id || selectedStaff?.name === member.name;
                   return (
                     <div
                       key={member.id}
                       onClick={() => onSelectStaff(member)}
-                      className={`flex flex-col items-center p-4 bg-white rounded-2xl shadow-sm border cursor-pointer transition-all active:scale-95 ${
-                        isChosen ? 'border-[#e6007e] ring-2 ring-[#e6007e]/30 bg-[#fff0f2]' : 'border-transparent'
+                      className={`flex flex-col items-center justify-between p-3 sm:p-4 bg-white rounded-2xl shadow-xs border cursor-pointer transition-all active:scale-95 text-center relative min-w-0 ${
+                        isChosen
+                          ? 'border-[#e6007e] ring-2 ring-[#e6007e]/30 bg-[#fff0f2] shadow-sm'
+                          : 'border-[#f0d8e2] hover:border-[#fcd5e8] hover:bg-[#fff8f8]'
                       }`}
                     >
-                      <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-sm mb-3">
-                        <img
-                          src={member.avatar}
-                          alt={member.name}
-                          className="w-full h-full object-cover"
-                        />
-                        {isChosen && (
-                          <div className="absolute inset-0 bg-[#e6007e]/30 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-white text-[24px]">check_circle</span>
-                          </div>
-                        )}
+                      {isChosen && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#e6007e] text-white flex items-center justify-center shadow-2xs">
+                          <span className="material-symbols-outlined text-[13px]">check</span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col items-center w-full">
+                        <div className={`relative w-14 h-14 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-xs mb-2 mt-1 border-2 transition-transform ${
+                          isChosen ? 'border-[#e6007e] scale-105' : 'border-[#fcd5e8]'
+                        }`}>
+                          <img
+                            src={member.avatar}
+                            alt={member.name}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-[13px] sm:text-[15px] font-bold text-[#26181c] truncate w-full leading-tight">
+                          {member.name}
+                        </span>
+                        <span className="text-[10px] sm:text-[12px] font-semibold text-[#e6007e] truncate w-full mt-0.5">
+                          {member.role}
+                        </span>
                       </div>
-                      <span className="text-[16px] font-semibold text-[#26181c]">{member.name}</span>
-                      <span className="text-[12px] font-medium text-[#e6007e]">{member.role}</span>
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="material-symbols-outlined text-[13px] text-amber-500">star</span>
-                        <span className="text-[11px] text-[#5a3f47] font-medium">
-                          {member.rating} ({member.reviewsCount})
+
+                      <div className="flex items-center justify-center gap-1 mt-2.5 bg-[#fde7f3]/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border border-[#fcd5e8]/50 w-full">
+                        <span className="material-symbols-outlined text-[12px] sm:text-[14px] text-amber-500 fill-current">star</span>
+                        <span className="text-[10px] sm:text-[11px] text-[#26181c] font-bold">
+                          {member.rating}
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] text-[#8c7077]">
+                          ({member.reviewsCount})
                         </span>
                       </div>
                     </div>
@@ -972,6 +1112,8 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* Sticky Bottom Action Bar */}
