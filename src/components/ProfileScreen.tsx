@@ -5,6 +5,7 @@ import { AddCardModal, SavedCard } from './AddCardModal';
 import { AddUpiModal, SavedUpi } from './AddUpiModal';
 import { ScanUpiQrModal } from './ScanUpiQrModal';
 import { RecentlyScannedUpiList } from './RecentlyScannedUpiList';
+import { InstallApp } from './InstallApp';
 
 interface ProfileScreenProps {
   location: UserLocation;
@@ -118,6 +119,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [isAddUpiOpen, setIsAddUpiOpen] = useState(false);
   const [isScanQrOpen, setIsScanQrOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [prefilledUpiInput, setPrefilledUpiInput] = useState<string>('');
 
   const [savedCards, setSavedCards] = useState<SavedCard[]>(() => {
@@ -427,7 +429,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Installer prompt handler mock
   const handleInstallApp = () => {
-    triggerToast('Nexora App is ready! Pin this page to your home screen to install.');
+    setIsInstallModalOpen(true);
   };
 
   // Saved Address Helper Methods
@@ -2508,6 +2510,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           triggerToast(`Parsed QR: ${scannedUpiId}`);
         }}
       />
+
+      {/* Modal: Install App */}
+      <Modal isOpen={isInstallModalOpen} onClose={() => setIsInstallModalOpen(false)} title="Install Application">
+        <InstallApp 
+          onClose={() => setIsInstallModalOpen(false)} 
+          onInstall={() => {
+            setIsInstallModalOpen(false);
+            triggerToast('Nexora app installed successfully on your home screen!');
+          }} 
+        />
+      </Modal>
 
     </div>
   );

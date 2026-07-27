@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { InstallApp } from './InstallApp';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -53,6 +54,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
 
   const triggerToast = (msg: string) => {
     setToast(msg);
@@ -89,7 +91,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleInstallApp = () => {
-    triggerToast('Nexora app installed successfully on your home screen!');
+    setShowInstallModal(true);
   };
 
   const handleLogOutConfirm = () => {
@@ -141,6 +143,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 Log Out
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Install App Modal */}
+      {showInstallModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="absolute inset-0" onClick={() => setShowInstallModal(false)} />
+          <div className="relative z-10 w-full max-w-sm animate-in zoom-in-95 duration-200">
+            <InstallApp 
+              onClose={() => setShowInstallModal(false)}
+              onInstall={() => {
+                setShowInstallModal(false);
+                triggerToast('Nexora app installed successfully on your home screen!');
+              }}
+            />
           </div>
         </div>
       )}
