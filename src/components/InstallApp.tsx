@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { detectBrowserAndOS, HelpTabType, EnvironmentInfo } from '../utils/browserDetect';
 
 const screenshots = [
   { url: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=400', label: 'Explore Premium Salons' },
@@ -11,15 +12,18 @@ const screenshots = [
 interface InstallAppProps {
   onClose?: () => void;
   onInstall?: () => void;
+  initialHelpTab?: HelpTabType;
 }
 
-export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall }) => {
+export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, initialHelpTab }) => {
+  const [detectedEnv] = useState<EnvironmentInfo>(() => detectBrowserAndOS());
+  const [helpTab, setHelpTab] = useState<HelpTabType>(() => initialHelpTab || detectedEnv.recommendedTab);
+  const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [countdown, setCountdown] = useState(5);
-  const [showStatus, setShowStatus] = useState(true);
   const [activeScreenshot, setActiveScreenshot] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [dontShowAgain, setDontShowAgain] = useState(() => {
@@ -300,7 +304,7 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall }) =>
               </div>
 
               {/* Offline Value Proposition Card */}
-              <div className="w-full bg-[var(--color-surface-container-low)] rounded-2xl p-4 border border-[var(--color-outline-variant)] mb-6 flex items-start gap-3 text-left">
+              <div className="w-full bg-[var(--color-surface-container-low)] rounded-2xl p-3.5 border border-[var(--color-outline-variant)] mb-3 flex items-start gap-3 text-left">
                 <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[var(--color-primary-pink)] flex-shrink-0 shadow-sm">
                   <span className="material-symbols-outlined text-[18px]">cloud_off</span>
                 </div>
@@ -309,6 +313,139 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall }) =>
                   <p className="text-[11px] text-[var(--color-on-surface-variant)] leading-tight">
                     You can still view your <strong>existing salon schedule</strong> and appointment details even without an active internet connection.
                   </p>
+                </div>
+              </div>
+
+              {/* Interactive Installation Help Guide with Auto-Detected helpTab */}
+              <div className="w-full bg-[var(--color-surface-container-low)] rounded-2xl p-3.5 border border-[var(--color-outline-variant)] mb-6 text-left">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[18px] text-[#e6007e]">help_outline</span>
+                    <h4 className="text-[12px] font-extrabold text-[var(--color-on-surface)] uppercase tracking-wider">
+                      Installation Guide
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#e6007e] bg-[#fde7f3] border border-[#f3c2dc] px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#e6007e] animate-pulse" />
+                    <span>{detectedEnv.label}</span>
+                  </span>
+                </div>
+
+                {/* Help Tabs Navigation */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none no-scrollbar">
+                  {[
+                    { id: 'ios-safari' as HelpTabType, label: 'iOS Safari', icon: 'smartphone' },
+                    { id: 'android-chrome' as HelpTabType, label: 'Android', icon: 'android' },
+                    { id: 'desktop-chrome' as HelpTabType, label: 'Chrome', icon: 'desktop_windows' },
+                    { id: 'desktop-safari' as HelpTabType, label: 'Mac Safari', icon: 'laptop_mac' },
+                  ].map(tab => {
+                    const isSelected = helpTab === tab.id;
+                    const isAutoDetected = detectedEnv.recommendedTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setHelpTab(tab.id)}
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 whitespace-nowrap transition-all cursor-pointer select-none shrink-0 border ${
+                          isSelected
+                            ? 'bg-[#26181c] text-white border-[#26181c] shadow-xs'
+                            : 'bg-white text-[var(--color-on-surface-variant)] border-[var(--color-outline-subtle)] hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[13px]">
+                          {tab.icon}
+                        </span>
+                        <span>{tab.label}</span>
+                        {isAutoDetected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#e6007e]" title="Auto-detected for your browser" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Tab Step-by-Step Instructions */}
+                <div className="mt-2.5 pt-2 border-t border-[var(--color-outline-variant)] text-[11px] text-[var(--color-on-surface-variant)] leading-snug">
+                  {helpTab === 'ios-safari' && (
+                    <ol className="space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>Tap the <strong>Share</strong> icon <span className="material-symbols-outlined text-[13px] inline text-[#e6007e] align-sub">ios_share</span> in Safari's toolbar.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Scroll down and tap <strong>Add to Home Screen</strong> <span className="material-symbols-outlined text-[13px] inline text-[#e6007e] align-sub">add_box</span>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                        <span>Tap <strong>Add</strong> in top right to finish installing.</span>
+                      </li>
+                    </ol>
+                  )}
+
+                  {helpTab === 'android-chrome' && (
+                    <ol className="space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>Tap Chrome menu (⋮) or tap <strong>Install Now</strong> below.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Select <strong>Add to Home screen</strong> or <strong>Install app</strong> <span className="material-symbols-outlined text-[13px] inline text-[#e6007e] align-sub">download</span>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                        <span>Confirm prompt to place Nexora icon on your home screen.</span>
+                      </li>
+                    </ol>
+                  )}
+
+                  {helpTab === 'desktop-chrome' && (
+                    <ol className="space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>Look for the <strong>Install</strong> icon <span className="material-symbols-outlined text-[13px] inline text-[#e6007e] align-sub">install_desktop</span> in address bar.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Or click menu (⋮) &gt; <strong>Save and Share</strong> &gt; <strong>Install Nexora</strong>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                        <span>Click <strong>Install</strong> in the browser prompt.</span>
+                      </li>
+                    </ol>
+                  )}
+
+                  {helpTab === 'desktop-safari' && (
+                    <ol className="space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>Click <strong>File</strong> in Mac Safari top menu bar.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Select <strong>Add to Dock...</strong> <span className="material-symbols-outlined text-[13px] inline text-[#e6007e] align-sub">dock</span>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                        <span>Click <strong>Add</strong> to pin Nexora to your Dock.</span>
+                      </li>
+                    </ol>
+                  )}
+
+                  {helpTab === 'other' && (
+                    <ol className="space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>Open browser options or settings menu.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#26181c] text-white text-[9px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Select <strong>Add to Home screen</strong> or <strong>Install</strong>.</span>
+                      </li>
+                    </ol>
+                  )}
                 </div>
               </div>
 
