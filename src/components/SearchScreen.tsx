@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Salon } from '../types';
 import { SalonCardSkeleton } from './Skeleton';
+import { SmartSearchFilterBar } from './SmartSearchFilterBar';
 
 interface SearchScreenProps {
   salons: Salon[];
   favorites: string[];
+  userCity?: string;
   onToggleFavorite: (salonId: string) => void;
   onSelectSalon: (salon: Salon) => void;
   onBack: () => void;
@@ -14,11 +16,13 @@ interface SearchScreenProps {
 export const SearchScreen: React.FC<SearchScreenProps> = ({
   salons,
   favorites,
+  userCity = 'Jaipur',
   onToggleFavorite,
   onSelectSalon,
 }) => {
-  const [searchQuery, setSearchQuery] = useState<string>('Hair spa');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const [smartFilter, setSmartFilter] = useState<'all' | 'top-rated-city' | 'top-nexora'>('all');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('All');
   const [selectedMinPrice, setSelectedMinPrice] = useState<number>(0);
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number>(5000);
@@ -29,33 +33,58 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   const [activeSalonOnMap, setActiveSalonOnMap] = useState<Salon | null>(null);
 
   useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery, selectedGenderFilter, selectedMinPrice, selectedMaxPrice, selectedMinRating, selectedDistance]);
+    // Smooth transition without flashing empty skeletons on filter toggle
+    if (searchQuery) {
+      setIsLoading(true);
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery]);
 
-  const filteredSalons = salons.filter((s) => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      q === '' ||
-      s.name.toLowerCase().includes(q) ||
-      s.area.toLowerCase().includes(q) ||
-      s.tags.some((t) => t.toLowerCase().includes(q)) ||
-      s.services.some((ser) => ser.name.toLowerCase().includes(q));
+  const filteredSalons = React.useMemo(() => {
+    return salons
+      .filter((s) => {
+        const q = searchQuery.toLowerCase();
+        const matchesSearch =
+          q === '' ||
+          s.name.toLowerCase().includes(q) ||
+          s.area.toLowerCase().includes(q) ||
+          s.tags.some((t) => t.toLowerCase().includes(q)) ||
+          s.services.some((ser) => ser.name.toLowerCase().includes(q));
 
-    const matchesGender =
-      selectedGenderFilter === 'All' ||
-      !s.genderCategory ||
-      s.genderCategory === selectedGenderFilter;
+        const matchesGender =
+          selectedGenderFilter === 'All' ||
+          !s.genderCategory ||
+          s.genderCategory === selectedGenderFilter;
 
-    const matchesPrice = s.startingPrice >= selectedMinPrice && s.startingPrice <= selectedMaxPrice;
-    const matchesRating = s.rating >= selectedMinRating;
-    const matchesDistance = s.distanceKm <= selectedDistance;
+        const matchesPrice = s.startingPrice >= selectedMinPrice && s.startingPrice <= selectedMaxPrice;
+        
+        const matchesRating = s.rating >= selectedMinRating;
 
-    return matchesSearch && matchesGender && matchesPrice && matchesRating && matchesDistance;
-  });
+        const matchesDistance = s.distanceKm <= selectedDistance;
+
+        return matchesSearch && matchesGender && matchesPrice && matchesRating && matchesDistance;
+      })
+      .sort((a, b) => {
+        if (smartFilter === 'top-rated-city') {
+          // Sort by Rating DESC -> Review Count DESC
+          if (b.rating !== a.rating) return b.rating - a.rating;
+          const aRev = a.verifiedReviewsCount || a.reviewCount || 0;
+          const bRev = b.verifiedReviewsCount || b.reviewCount || 0;
+          return bRev - aRev;
+        }
+        if (smartFilter === 'top-nexora') {
+          // Sort by Completed Bookings DESC -> Rating DESC
+          const aBookings = a.completedBookings || Math.floor(a.rating * 80);
+          const bBookings = b.completedBookings || Math.floor(b.rating * 80);
+          if (bBookings !== aBookings) return bBookings - aBookings;
+          return b.rating - a.rating;
+        }
+        return b.rating - a.rating;
+      });
+  }, [salons, searchQuery, smartFilter, selectedGenderFilter, selectedMinPrice, selectedMaxPrice, selectedMinRating, selectedDistance]);
 
   return (
     <div className="flex flex-col w-full max-w-md mx-auto gap-5 pb-32 pt-2">
@@ -81,6 +110,13 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
             </button>
           )}
         </div>
+
+        {/* Permanent Smart Search Filters */}
+        <SmartSearchFilterBar
+          activeFilter={smartFilter}
+          userCity={userCity}
+          onSelectFilter={setSmartFilter}
+        />
 
         {/* Simple Filter Toggle */}
         <div className="flex gap-2">
@@ -231,6 +267,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                     setSelectedMaxPrice(5000);
                     setSelectedMinRating(0);
                     setSelectedDistance(10);
+                    setSmartFilter('all');
                   }}
                   className="mt-2 w-full h-10 bg-[#fde7f3] text-[#e6007e] rounded-xl font-bold text-[13px] active:scale-95 transition-all"
                 >

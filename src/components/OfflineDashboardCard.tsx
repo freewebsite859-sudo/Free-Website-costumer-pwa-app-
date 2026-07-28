@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, Clock, MapPin, CheckCircle2, WifiOff, Wifi } from 'lucide-react';
+import { Calendar, Clock, MapPin, CheckCircle2, WifiOff, Wifi, X } from 'lucide-react';
 import { Booking } from '../types';
 
 interface OfflineDashboardCardProps {
   booking: Booking;
+  onClose?: () => void;
 }
 
-export const OfflineDashboardCard: React.FC<OfflineDashboardCardProps> = ({ booking }) => {
+export const OfflineDashboardCard: React.FC<OfflineDashboardCardProps> = ({ booking, onClose }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -29,8 +30,18 @@ export const OfflineDashboardCard: React.FC<OfflineDashboardCardProps> = ({ book
       animate={{ opacity: 1, y: 0 }}
       className="bg-white rounded-[28px] p-5 border border-[#f0f0f0] shadow-sm relative overflow-hidden group"
     >
-      {/* Offline Status Badge - Positioned in the top-right corner */}
-      <div className="absolute top-0 right-0 z-10">
+      {/* Close Button and Status Badge Container */}
+      <div className="absolute top-0 right-0 z-20 flex items-center">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-2 mr-1 text-[#8c7077] hover:text-[#e6007e] hover:bg-[#fff0f2] rounded-full transition-colors active:scale-90"
+            aria-label="Dismiss notification"
+            title="Dismiss"
+          >
+            <X size={18} strokeWidth={2.5} />
+          </button>
+        )}
         <div className={`
           flex items-center gap-1.5 px-3.5 py-2
           ${isOnline ? 'bg-[#f8fafc] text-[#64748b] border-l border-b border-[#f1f5f9]' : 'bg-amber-50 text-amber-700 border-l border-b border-amber-100'} 

@@ -107,6 +107,13 @@ function openDB(name, version) {
   });
 }
 
+// Message Event Handler for direct sync
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SYNC_NOW') {
+    event.waitUntil(syncAppointments());
+  }
+});
+
 // Fetch Handler
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Booking, LoyaltyTier } from '../types';
 
 interface RewardsScreenProps {
@@ -100,6 +100,10 @@ interface LeaderboardMember {
 }
 
 export const RewardsScreen: React.FC<RewardsScreenProps> = ({ bookings = [] }) => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedTierTab, setSelectedTierTab] = useState<string | null>(null);

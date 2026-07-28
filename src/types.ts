@@ -39,6 +39,8 @@ export interface Staff {
 export interface Salon {
   id: string;
   name: string;
+  type?: string;
+  category?: string;
   area: string;
   city: string;
   distanceKm: number;
@@ -55,8 +57,23 @@ export interface Salon {
   address: string;
   hours: string;
   description: string;
+  phone?: string;
+  bookingUrl?: string;
+  amenities?: string[];
+  offers?: Array<{
+    id: string;
+    title: string;
+    code: string;
+    discountPercent?: number;
+    amountOff?: number;
+  }>;
   services: Service[];
   staff: Staff[];
+  weeklyCollection?: number;
+  monthlyCollection?: number;
+  completedBookings?: number;
+  verifiedReviewsCount?: number;
+  lastActiveTime?: number;
 }
 
 export interface Booking {

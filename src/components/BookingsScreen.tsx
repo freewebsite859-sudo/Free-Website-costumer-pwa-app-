@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Booking, Screen, Salon, ServiceReview } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
 import { BookingDetailsModal } from './BookingDetailsModal';
@@ -25,6 +25,10 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   onMarkBookingReviewed,
   initialSelectedBookingId,
 }) => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(() => {
     if (initialSelectedBookingId) {

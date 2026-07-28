@@ -24,7 +24,7 @@ export const NotificationOverlay: React.FC<NotificationOverlayProps> = ({
   if (!notification) return null;
 
   return (
-    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md animate-in slide-in-from-top-6 duration-300">
+    <div className="fixed top-[calc(env(safe-area-inset-top,0px)+80px)] left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] max-w-md animate-in slide-in-from-top-4 duration-300">
       <div className="bg-[#1f1115]/95 backdrop-blur-2xl text-white rounded-2xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] border border-white/15 relative overflow-hidden">
         {/* Glow Bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-[#e6007e] to-purple-500 animate-pulse" />
@@ -74,13 +74,13 @@ export const NotificationOverlay: React.FC<NotificationOverlayProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/10">
+        <div className="flex items-stretch gap-2 mt-3 pt-2 border-t border-white/10">
           <button
             onClick={() => {
               onDismiss();
               onNavigate('bookings');
             }}
-            className="flex-1 py-2 bg-[#e6007e] hover:bg-[#c9006e] text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+            className="flex-1 h-10 bg-[#e6007e] hover:bg-[#c9006e] text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[15px]">event</span>
             View Booking
@@ -88,7 +88,7 @@ export const NotificationOverlay: React.FC<NotificationOverlayProps> = ({
 
           <button
             onClick={() => onSnooze(notification.id)}
-            className="py-2 px-3 bg-white/10 hover:bg-white/20 text-white/90 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+            className="flex-1 h-10 bg-white/10 hover:bg-white/20 text-white/90 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
           >
             <span className="material-symbols-outlined text-[14px]">snooze</span>
             Snooze 10m

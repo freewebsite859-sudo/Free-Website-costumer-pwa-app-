@@ -13,6 +13,7 @@ interface ProfileScreenProps {
   favoritesCount: number;
   bookings: Booking[];
   onNavigate: (screen: Screen) => void;
+  onBack?: () => void;
   onOpenLocation: () => void;
   onAvatarUpdate?: (avatar: string) => void;
 }
@@ -54,9 +55,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   favoritesCount,
   bookings,
   onNavigate,
+  onBack,
   onOpenLocation,
   onAvatarUpdate,
 }) => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Local states for customer profile
   const [name, setName] = useState<string>(() => localStorage.getItem('profile_name') || 'Priya Sharma');
   const [email, setEmail] = useState<string>(() => localStorage.getItem('profile_email') || 'priya.sharma@example.com');
@@ -95,7 +101,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const [savedCards, setSavedCards] = useState<SavedCard[]>(() => {
     const saved = localStorage.getItem('nexora_saved_cards');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved cards:', e);
+      }
+    }
     return [
       {
         id: 'card-1',
@@ -118,7 +130,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const [savedUpis, setSavedUpis] = useState<SavedUpi[]>(() => {
     const saved = localStorage.getItem('nexora_saved_upis');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved upis:', e);
+      }
+    }
     return [
       {
         id: 'upi-qr-1',
@@ -215,7 +233,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       text: feedbackText,
       date: new Date().toISOString()
     };
-    const existing = JSON.parse(localStorage.getItem('nexora_feedback') || '[]');
+    let existing = [];
+    try {
+      existing = JSON.parse(localStorage.getItem('nexora_feedback') || '[]');
+    } catch (e) {
+      console.error('Failed to parse feedback:', e);
+    }
     localStorage.setItem('nexora_feedback', JSON.stringify([newFeedback, ...existing]));
 
     setIsFeedbackOpen(false);
@@ -231,7 +254,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const [savedAddresses, setSavedAddresses] = useState<Address[]>(() => {
     const saved = localStorage.getItem('nexora_saved_addresses');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved addresses:', e);
+      }
+    }
     return [
       {
         id: 'addr-1',
@@ -598,9 +627,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* Screen Header */}
       <div className="flex items-center justify-between pb-3 border-b border-[#e8e8e8]/80">
-        <div>
-          <h1 className="text-[24px] font-bold text-[#26181c] font-headline">Profile</h1>
-          <p className="text-[12px] text-[#8c7077]">Manage your personal beauty passport</p>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onBack ? onBack() : onNavigate('home')}
+            className="w-10 h-10 -ml-2 rounded-full hover:bg-[#fff0f2] flex items-center justify-center text-[#5a3f47] transition-all cursor-pointer"
+            aria-label="Back"
+          >
+            <span className="material-symbols-outlined text-[24px] text-[#e6007e]">arrow_back</span>
+          </button>
+          <div>
+            <h1 className="text-[24px] font-bold text-[#26181c] font-headline">Profile</h1>
+            <p className="text-[12px] text-[#8c7077]">Manage your personal beauty passport</p>
+          </div>
         </div>
         <button
           onClick={() => onNavigate('settings')}

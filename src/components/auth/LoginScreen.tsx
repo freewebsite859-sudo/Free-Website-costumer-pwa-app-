@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { Eye, EyeOff } from 'lucide-react';
 import { WELCOME_BG_URL, LOGO_SQUARE } from '../../data/mockData';
 
-export const LoginScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth}) => {
+export const LoginScreen: React.FC<{onToggleAuth: () => void; onGuestLogin?: () => void}> = ({onToggleAuth, onGuestLogin}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,19 +15,32 @@ export const LoginScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth}
     e.preventDefault();
     setErrorMsg(null);
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-        setErrorMsg('Invalid email or password. Please try again.');
-        setIsLoading(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message?.toLowerCase().includes('rate') || error.status === 429) {
+          setErrorMsg('Auth rate limit reached. You can click "Explore as Guest" below.');
+        } else {
+          setErrorMsg('Invalid credentials. You can also explore as Guest.');
+        }
+      }
+    } catch (err: any) {
+      setErrorMsg('Login request failed. Click "Explore as Guest" to proceed.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-    });
-    if (error) {
-        alert(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      if (error) {
+        if (onGuestLogin) onGuestLogin();
+      }
+    } catch (err) {
+      if (onGuestLogin) onGuestLogin();
     }
   };
 
@@ -57,11 +70,9 @@ export const LoginScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth}
         <div className="flex flex-col items-center mb-8">
           <img 
             alt="Nexora Logo" 
-            className="h-20 w-20 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm border border-[#e8e8e8]" 
+            className="h-28 w-28 object-contain mb-4" 
             src={LOGO_SQUARE}
           />
-          <h1 className="text-xl font-bold text-[#26181c]">Nexora</h1>
-          <span className="text-[11px] text-[#5a3f47] uppercase tracking-wider mt-1 font-medium">Growth Partner</span>
         </div>
 
         {/* Illustration */}
@@ -172,6 +183,17 @@ export const LoginScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth}
               </svg>
               Continue with Google
             </button>
+
+            {onGuestLogin && (
+              <button
+                onClick={onGuestLogin}
+                className="w-full bg-white text-[#26181c] rounded-xl py-3.5 font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 active:scale-[0.98] border border-[#e8e8e8] shadow-2xs"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px] text-[#e6007e]">explore</span>
+                Explore as Guest
+              </button>
+            )}
           </div>
         </form>
 

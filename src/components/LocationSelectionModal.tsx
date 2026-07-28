@@ -97,7 +97,7 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
             >
               <span className="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
             </button>
-            <img src={LOGO_SQUARE} alt="Logo" className="h-7 w-7 rounded-lg object-cover shadow-sm" />
+            <img src={LOGO_SQUARE} alt="Logo" className="h-9 w-9 object-contain" />
             <span className="text-[18px] font-bold text-[#26181c] truncate">
               Location Selection
             </span>

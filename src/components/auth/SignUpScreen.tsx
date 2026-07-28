@@ -60,32 +60,38 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () =
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
-          full_name: formData.fullName,
-          mobile: formData.mobile,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            mobile: formData.mobile,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      alert('Sign up failed: ' + error.message);
-      setIsLoading(false);
-    } else {
-      if (data.user) {
-        await supabase.from('profiles').insert({
-          id: data.user.id,
-          full_name: formData.fullName,
-          email: formData.email,
-          mobile: formData.mobile
-        });
-        alert('Check your email for confirmation!');
+      if (error) {
+        alert('Sign up note: ' + (error.message || 'Please try again or continue as guest.'));
       } else {
-        alert('Check your email for confirmation!');
+        if (data.user) {
+          try {
+            await supabase.from('profiles').insert({
+              id: data.user.id,
+              full_name: formData.fullName,
+              email: formData.email,
+              mobile: formData.mobile
+            });
+          } catch (pe) {
+            // ignore profile insert fail
+          }
+        }
+        alert('Registration submitted! Check your email for confirmation link.');
       }
+    } catch (err: any) {
+      alert('Sign up server notice: ' + (err?.message || 'Connection offline or rate limit reached.'));
+    } finally {
       setIsLoading(false);
     }
   };
@@ -97,9 +103,7 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () =
 
       <main className="relative z-10 w-full max-w-md px-6 py-12 flex flex-col">
         <div className="flex flex-col items-center mb-8">
-          <img alt="Nexora Logo" className="h-16 w-16 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm border border-[#e8e8e8]" src={LOGO_SQUARE} />
-          <h1 className="text-xl font-bold text-[#26181c]">Nexora</h1>
-          <span className="text-[11px] text-[#5a3f47] uppercase tracking-wider mt-1 font-medium">Growth Partner</span>
+          <img alt="Nexora Logo" className="h-24 w-24 object-contain mb-4" src={LOGO_SQUARE} />
         </div>
 
         <div className="mb-8 text-center md:text-left">

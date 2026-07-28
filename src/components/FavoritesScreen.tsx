@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Salon, Screen, SavedProfessional, SavedService } from '../types';
 
 interface FavoritesScreenProps {
@@ -24,6 +24,10 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   onSelectSalon,
   onNavigate,
 }) => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'salons' | 'professionals' | 'services'>('salons');
 
   // Snackbar state for Undo

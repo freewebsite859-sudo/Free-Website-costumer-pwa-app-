@@ -112,6 +112,20 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
+  // External Booking & Lightbox Modals
+  const [isRedirectModalOpen, setIsRedirectModalOpen] = useState(false);
+  const [isUnavailableModalOpen, setIsUnavailableModalOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const handleBookNowClick = () => {
+    if (salon.bookingUrl) {
+      window.open(salon.bookingUrl, '_blank', 'noopener,noreferrer');
+      setIsRedirectModalOpen(true);
+    } else {
+      setIsUnavailableModalOpen(true);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'services') {
       setIsLoadingServices(true);
@@ -436,6 +450,29 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                 <span className="material-symbols-outlined text-[16px] text-[#e6007e]">location_on</span>
                 {salon.distanceKm} km away • {salon.area}
               </p>
+              
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {salon.phone && (
+                  <a
+                    href={`tel:${salon.phone}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#fff0f3] text-[#e6007e] rounded-xl text-xs font-bold border border-[#fcd5e8] hover:bg-[#e6007e] hover:text-white transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">call</span>
+                    {salon.phone}
+                  </a>
+                )}
+                {salon.bookingUrl ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-xl text-[11px] font-bold border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Official Booking Partner
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 rounded-xl text-[11px] font-bold border border-amber-200">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    In-Person & Phone Scheduling
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Rating Badge */}
@@ -447,6 +484,29 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
               <span className="text-[10px] font-medium text-[#5a3f47]">({salon.reviewCount ?? salon.reviewsCount} reviews)</span>
             </div>
           </div>
+
+          {/* Special Offers Banner */}
+          {salon.offers && salon.offers.length > 0 && (
+            <div className="mt-2 bg-gradient-to-r from-amber-500/10 via-[#e6007e]/10 to-purple-500/10 p-3 rounded-2xl border border-amber-300/60 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-2xs">
+                  🏷️
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#26181c]">{salon.offers[0].title}</h4>
+                  <p className="text-[10px] text-[#5a3f47] font-semibold">
+                    Use promo code: <span className="text-[#e6007e] font-extrabold uppercase bg-white px-1.5 py-0.5 rounded border border-[#fcd5e8]">{salon.offers[0].code}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleBookNowClick}
+                className="px-3 py-1.5 bg-[#e6007e] text-white text-[11px] font-bold rounded-xl shadow-2xs hover:bg-[#c9006e] transition-all cursor-pointer whitespace-nowrap active:scale-95"
+              >
+                Claim Offer ↗
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Sticky Custom Segment Tabs */}
@@ -944,6 +1004,92 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {salon.phone && (
+                    <>
+                      <div className="w-full h-px bg-[#fce2e7]" />
+                      <div className="flex gap-3 items-center justify-between">
+                        <div className="flex gap-3 items-center">
+                          <div className="w-10 h-10 rounded-full bg-[#fde7f3] flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-[#e6007e] text-[20px]">call</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[12px] text-[#8c7077] font-medium">Contact Number</span>
+                            <span className="text-[14px] text-[#26181c] font-bold">{salon.phone}</span>
+                          </div>
+                        </div>
+                        <a
+                          href={`tel:${salon.phone}`}
+                          className="px-3.5 py-1.5 bg-[#e6007e] text-white rounded-xl text-xs font-bold hover:bg-[#c9006e] transition-all cursor-pointer shadow-2xs"
+                        >
+                          Call Studio
+                        </a>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Amenities Section */}
+              {salon.amenities && salon.amenities.length > 0 && (
+                <div className="flex flex-col gap-2.5">
+                  <h3 className="text-[18px] font-bold text-[#26181c]">Amenities & Facilities</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {salon.amenities.map((amenity, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-[#26181c] text-xs font-semibold border border-[#e8e8e8] shadow-2xs"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-[#e6007e]">check_circle</span>
+                        {amenity}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Photo Gallery Grid */}
+              {salon.gallery && salon.gallery.length > 0 && (
+                <div className="flex flex-col gap-2.5">
+                  <h3 className="text-[18px] font-bold text-[#26181c]">Salon Photos & Studio Gallery</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {salon.gallery.map((imgUrl, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setPreviewImage(imgUrl)}
+                        className="aspect-square rounded-2xl overflow-hidden cursor-pointer border border-slate-200 hover:opacity-90 transition-all relative group shadow-2xs"
+                      >
+                        <img src={imgUrl} alt={`Gallery ${idx + 1}`} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <span className="material-symbols-outlined text-[22px]">zoom_in</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Location Map Card */}
+              <div className="flex flex-col gap-2.5">
+                <h3 className="text-[18px] font-bold text-[#26181c]">Location Map</h3>
+                <div className="relative w-full h-44 bg-gradient-to-br from-[#fff0f3] to-[#fde7f3] rounded-2xl overflow-hidden border border-[#fcd5e8] flex flex-col items-center justify-center p-4 text-center group shadow-xs">
+                  <div className="absolute inset-0 bg-[radial-gradient(#e6007e_1.5px,transparent_1.5px)] [background-size:18px_18px] opacity-25" />
+                  <div className="relative z-10 flex flex-col items-center gap-2">
+                    <div className="w-11 h-11 rounded-full bg-[#e6007e] text-white flex items-center justify-center shadow-md animate-bounce">
+                      <span className="material-symbols-outlined text-[24px]">location_on</span>
+                    </div>
+                    <p className="text-xs font-bold text-[#26181c]">{salon.name}</p>
+                    <p className="text-[11px] text-[#5a3f47] max-w-[260px]">{salon.address}</p>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(salon.name + ' ' + salon.address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 px-4 py-2 bg-white text-[#e6007e] rounded-xl text-xs font-bold border border-[#fcd5e8] shadow-xs hover:bg-[#e6007e] hover:text-white transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      Open in Google Maps
+                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1104,11 +1250,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
       </div>
 
       {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe z-50 max-w-md mx-auto shadow-[0_-8px_30px_rgba(0,0,0,0.08)] mb-safe">
+      <div className="fixed bottom-0 left-0 right-0 pt-4 pb-6 p-5 bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe z-50 max-w-md mx-auto shadow-[0_-8px_30px_rgba(0,0,0,0.08)] mb-safe">
         <div className="flex items-center justify-between mb-3">
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="text-[11px] text-[#5a3f47] font-medium">Selected ({selectedServices.length} items)</span>
+              <span className="text-[11px] text-[#5a3f47] font-medium">Starting from</span>
               {selectedServices.length > 0 && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#fff0f3] text-[#e6007e] text-[9px] font-bold border border-[#fcd5e8]">
                   <span className="material-symbols-outlined text-[12px]">timer</span>
@@ -1120,27 +1266,119 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
               ₹{totalPrice > 0 ? totalPrice : salon.startingPrice}
             </span>
           </div>
-          {selectedStaff && (
-            <div className="text-right">
-              <span className="text-[11px] text-[#5a3f47]">Stylist</span>
-              <p className="text-[13px] font-semibold text-[#26181c]">{selectedStaff.name}</p>
-            </div>
-          )}
+          
+          <div className="text-right">
+            <span className="text-[11px] font-medium text-[#5a3f47]">Booking Method</span>
+            <p className="text-[12px] font-bold text-[#e6007e] flex items-center justify-end gap-1">
+              <span className="material-symbols-outlined text-[14px]">public</span>
+              {salon.bookingUrl ? 'Official Site' : 'Direct Call'}
+            </p>
+          </div>
         </div>
 
         <button
-          onClick={onProceedToCheckout}
-          disabled={selectedServices.length === 0}
-          className={`w-full h-[52px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
-            selectedServices.length > 0
-              ? 'bg-[#e6007e] text-white hover:bg-[#b80663] shadow-[#e6007e]/30'
-              : 'bg-[#e0bec6] text-white cursor-not-allowed'
-          }`}
+          onClick={handleBookNowClick}
+          className="w-full h-[52px] rounded-xl font-bold text-[15px] flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer bg-[#e6007e] text-white hover:bg-[#b80663] shadow-[#e6007e]/30"
         >
-          {selectedServices.length > 0 ? 'Book Appointment' : 'Select a Service to Continue'}
-          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+          <span>{salon.bookingUrl ? 'Book Now on Official Site' : 'Book Now'}</span>
+          <span className="material-symbols-outlined text-[18px]">
+            {salon.bookingUrl ? 'open_in_new' : 'arrow_forward'}
+          </span>
         </button>
       </div>
+
+      {/* External Redirect Confirmation Modal */}
+      {isRedirectModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col items-center text-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#fff0f3] border border-[#fcd5e8] text-[#e6007e] flex items-center justify-center shadow-xs">
+              <span className="material-symbols-outlined text-[30px]">open_in_new</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-lg font-bold text-[#26181c]">Opening Official Website</h3>
+              <p className="text-xs text-[#5a3f47] leading-relaxed">
+                You are being transferred to the official booking website for <strong className="text-[#26181c]">{salon.name}</strong> to complete your appointment securely.
+              </p>
+              {salon.bookingUrl && (
+                <p className="text-[11px] text-[#8c7077] font-mono mt-1 break-all bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  {salon.bookingUrl}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col w-full gap-2 mt-2">
+              <button
+                onClick={() => {
+                  if (salon.bookingUrl) window.open(salon.bookingUrl, '_blank', 'noopener,noreferrer');
+                }}
+                className="w-full py-3 bg-[#e6007e] hover:bg-[#c9006e] text-white rounded-xl text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                Proceed to Official Site ↗
+              </button>
+              <button
+                onClick={() => setIsRedirectModalOpen(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-[#26181c] rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Return to App
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Online Booking Unavailable Modal */}
+      {isUnavailableModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col items-center text-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs">
+              <span className="material-symbols-outlined text-[30px]">event_busy</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-lg font-bold text-[#26181c]">Online Booking Unavailable</h3>
+              <p className="text-xs text-[#5a3f47] leading-relaxed">
+                Online booking is currently unavailable for <strong className="text-[#26181c]">{salon.name}</strong>.
+              </p>
+              <p className="text-xs text-[#8c7077] mt-1">
+                Please call or visit the salon directly to schedule your appointment.
+              </p>
+            </div>
+            <div className="flex flex-col w-full gap-2 mt-2">
+              {salon.phone && (
+                <a
+                  href={`tel:${salon.phone}`}
+                  className="w-full py-3 bg-[#26181c] text-white rounded-xl text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">call</span>
+                  Call Salon ({salon.phone})
+                </a>
+              )}
+              <button
+                onClick={() => setIsUnavailableModalOpen(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-[#26181c] rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer animate-in fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-md w-full max-h-[80vh] rounded-3xl overflow-hidden shadow-2xl border border-white/20">
+            <img src={previewImage} alt="Preview" className="w-full h-full object-contain bg-black" />
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

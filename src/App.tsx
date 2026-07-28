@@ -35,26 +35,71 @@ import { InstallApp } from './components/InstallApp';
 import { Modal } from './components/Modal';
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState<any>(() => {
+    return { id: 'guest-user', email: 'guest@nexora.app' };
+  });
+  const [authLoading, setAuthLoading] = useState(false);
   const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'role-conflict'>('login');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
+    let isMounted = true;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    try {
+      supabase.auth.getSession()
+        .then(({ data }) => {
+          if (isMounted) {
+            if (data?.session?.user) {
+              setUser(data.session.user);
+            }
+            setAuthLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.warn('Supabase auth notice:', err?.message || err);
+          if (isMounted) {
+            setAuthLoading(false);
+          }
+        });
 
-    return () => subscription.unsubscribe();
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (isMounted) {
+          if (session?.user) {
+            setUser(session.user);
+          }
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        data?.subscription?.unsubscribe();
+      };
+    } catch (e) {
+      console.warn('Supabase init notice:', e);
+      if (isMounted) {
+        setAuthLoading(false);
+      }
+    }
   }, []);
 
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const [screenStack, setScreenStack] = useState<Screen[]>(['home']);
+  const currentScreen = screenStack[screenStack.length - 1];
+
+  const setCurrentScreen = (screen: Screen) => {
+    const mainTabs: Screen[] = ['home', 'search', 'favourites', 'bookings', 'rewards', 'profile'];
+    setScreenStack(prev => {
+      if (mainTabs.includes(screen)) {
+        return [screen];
+      }
+      if (prev[prev.length - 1] === screen) return prev;
+      return [...prev, screen];
+    });
+  };
+
+  const handleBack = () => {
+    setScreenStack(prev => (prev.length > 1 ? prev.slice(0, -1) : ['home']));
+  };
+
+  const [isAppointmentDismissed, setIsAppointmentDismissed] = useState(false);
   const [salons] = useState<Salon[]>(MOCK_SALONS);
   const [selectedSalon, setSelectedSalon] = useState<Salon>(MOCK_SALONS[0]);
   const [selectedServices, setSelectedServices] = useState<Service[]>([
@@ -66,17 +111,54 @@ export default function App() {
 
   const [userLocation, setUserLocation] = useState<UserLocation>(() => {
     const saved = localStorage.getItem('nexora_user_location');
-    return saved ? JSON.parse(saved) : INITIAL_LOCATION;
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved location:', e);
+      }
+    }
+    return INITIAL_LOCATION;
   });
 
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('nexora_favorites');
-    return saved ? JSON.parse(saved) : ['aura-premium', 'glam-room'];
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse favorites:', e);
+      }
+    }
+    return ['aura-premium', 'glam-room'];
   });
+
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
+    const saved = localStorage.getItem('nexora_recently_viewed');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse recently viewed:', e);
+      }
+    }
+    return ['aura-premium', 'glam-room'];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nexora_recently_viewed', JSON.stringify(recentlyViewed));
+  }, [recentlyViewed]);
 
   const [favoriteProfessionals, setFavoriteProfessionals] = useState<SavedProfessional[]>(() => {
     const saved = localStorage.getItem('nexora_favorite_pros');
-    return saved ? JSON.parse(saved) : [
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse favorite professionals:', e);
+      }
+    }
+    return [
       {
         id: 'pro-1',
         salonId: 'aura-premium',
@@ -102,7 +184,14 @@ export default function App() {
 
   const [favoriteServices, setFavoriteServices] = useState<SavedService[]>(() => {
     const saved = localStorage.getItem('nexora_favorite_services');
-    return saved ? JSON.parse(saved) : [
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse favorite services:', e);
+      }
+    }
+    return [
       {
         id: 'srv-1',
         salonId: 'aura-premium',
@@ -143,7 +232,13 @@ export default function App() {
   // Notification States
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     const saved = localStorage.getItem('nexora_notifications');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse notifications:', e);
+      }
+    }
     return [
       {
         id: 'notif-init-1',
@@ -216,17 +311,31 @@ export default function App() {
       }
     };
 
+    const triggerDirectSync = () => {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SYNC_NOW' });
+        setIsSyncing(true);
+      }
+    };
+
     // 2. Register for Background Sync when regaining connectivity
     const handleOnline = async () => {
-      console.log('App is online. Registering background sync...');
+      console.log('App is online. Synchronizing data...');
       if ('serviceWorker' in navigator && 'SyncManager' in window) {
         try {
           const registration = await navigator.serviceWorker.ready;
-          await (registration as any).sync.register('sync-appointments');
-          setIsSyncing(true);
+          if (registration && (registration as any).sync) {
+            await (registration as any).sync.register('sync-appointments');
+            setIsSyncing(true);
+          } else {
+            triggerDirectSync();
+          }
         } catch (err) {
-          console.error('Background sync registration failed:', err);
+          console.warn('Background sync registration notice:', err);
+          triggerDirectSync();
         }
+      } else {
+        triggerDirectSync();
       }
     };
 
@@ -243,10 +352,35 @@ export default function App() {
   const [isGlobalAddUpiOpen, setIsGlobalAddUpiOpen] = useState(false);
   const [globalPrefilledUpi, setGlobalPrefilledUpi] = useState('');
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-  const [isPwaDismissed, setIsPwaDismissed] = useState(() => localStorage.getItem('nexora_pwa_dismissed') === 'true');
+  const [isAppInstalled, setIsAppInstalled] = useState(() => localStorage.getItem('nexora_app_installed') === 'true');
+  const [hasDismissedInSession, setHasDismissedInSession] = useState(false);
+  const [isPwaDismissedPermanently, setIsPwaDismissedPermanently] = useState(() => localStorage.getItem('nexora_pwa_dismissed') === 'true');
 
   // PWA Installation State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    
+    if (isStandalone && !isAppInstalled) {
+      setIsAppInstalled(true);
+      localStorage.setItem('nexora_app_installed', 'true');
+    }
+
+    // Auto-show popup if:
+    // 1. Not installed
+    // 2. Not in standalone mode
+    // 3. Not dismissed in current session
+    // 4. Not dismissed permanently via "Don't show again" checkbox
+    if (!isAppInstalled && !isStandalone && !hasDismissedInSession && !isPwaDismissedPermanently) {
+      // Delay slightly for better UX (2 seconds)
+      const timer = setTimeout(() => {
+        setIsInstallModalOpen(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAppInstalled, hasDismissedInSession, isPwaDismissedPermanently]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -263,6 +397,10 @@ export default function App() {
       // Clear the deferredPrompt so it can be garbage collected
       setDeferredPrompt(null);
       console.log('PWA was installed');
+      
+      // Mark as installed permanently
+      setIsAppInstalled(true);
+      localStorage.setItem('nexora_app_installed', 'true');
       
       // Show success notification
       const installNotif: AppNotification = {
@@ -359,6 +497,10 @@ export default function App() {
     setSelectedSalon(salon);
     setSelectedServices(salon.services.length > 0 ? [salon.services[0]] : []);
     setSelectedStaff(salon.staff.length > 0 ? salon.staff[0] : null);
+    setRecentlyViewed((prev) => {
+      const filtered = prev.filter((id) => id !== salon.id);
+      return [salon.id, ...filtered].slice(0, 10);
+    });
     setCurrentScreen('salon-detail');
   };
 
@@ -483,7 +625,7 @@ export default function App() {
   const getHeaderTitle = (): string => {
     switch (currentScreen) {
       case 'home':
-        return 'Home';
+        return '';
       case 'search':
         return 'Find Salons';
       case 'salon-detail':
@@ -519,11 +661,23 @@ export default function App() {
     currentScreen === 'settings';
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#fff8f8] text-[#26181c] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 border-4 border-[#e6007e]/20 border-t-[#e6007e] rounded-full animate-spin mb-4" />
+        <p className="text-sm font-bold text-[#8e004b]">Loading Nexora Salon...</p>
+      </div>
+    );
+  }
 
   if (!user) {
     if (authScreen === 'login') {
-      return <LoginScreen onToggleAuth={() => setAuthScreen('signup')} />;
+      return (
+        <LoginScreen 
+          onToggleAuth={() => setAuthScreen('signup')} 
+          onGuestLogin={() => setUser({ id: 'guest-user', email: 'guest@nexora.app' })} 
+        />
+      );
     }
     if (authScreen === 'signup') {
       return <SignUpScreen onToggleAuth={() => setAuthScreen('login')} onConflict={() => setAuthScreen('role-conflict')} />;
@@ -587,12 +741,13 @@ export default function App() {
             onNavigate={(screen) => setCurrentScreen(screen)}
             showBack={showHeaderBack}
             onBack={() => {
-              if (currentScreen === 'checkout') setCurrentScreen('salon-detail');
-              else if (currentScreen === 'salon-detail') setCurrentScreen('home');
-              else if (currentScreen === 'search') setCurrentScreen('home');
-              else if (currentScreen === 'saved-addresses') setCurrentScreen('profile');
-              else if (currentScreen === 'support') setCurrentScreen('profile');
-              else if (currentScreen === 'settings') setCurrentScreen('profile');
+              const cur = currentScreen as string;
+              if (cur === 'checkout') setCurrentScreen('salon-detail');
+              else if (cur === 'salon-detail') setCurrentScreen('home');
+              else if (cur === 'search') setCurrentScreen('home');
+              else if (cur === 'saved-addresses') setCurrentScreen('profile');
+              else if (cur === 'support') setCurrentScreen('profile');
+              else if (cur === 'settings') setCurrentScreen('profile');
               else setCurrentScreen('home');
             }}
             unreadNotificationCount={unreadCount}
@@ -600,8 +755,6 @@ export default function App() {
             onOpenQrScanner={() => setIsGlobalScanQrOpen(true)}
             userAvatar={profileAvatar}
             isSyncing={isSyncing}
-            showInstall={!isPwaDismissed}
-            onInstall={() => setIsInstallModalOpen(true)}
           />
         )}
 
@@ -625,30 +778,14 @@ export default function App() {
               location={userLocation}
               salons={salons}
               favorites={favorites}
+              recentlyViewed={recentlyViewed}
               bookings={bookings}
               onToggleFavorite={handleToggleFavorite}
               onSelectSalon={handleSelectSalon}
               onNavigate={(s) => setCurrentScreen(s)}
               onOpenLocationSelector={() => setCurrentScreen('location-modal')}
-              onTestBooking={() => {
-                const dummyBooking: Booking = {
-                  id: '#NEX-' + Math.floor(10000 + Math.random() * 90000),
-                  salonId: salons[0]?.id || '1',
-                  salonName: salons[0]?.name || 'Glow & Grace Unisex Salon',
-                  locationArea: salons[0]?.area || 'Vaishali Nagar, Jaipur',
-                  services: [
-                    { id: 's1', name: "Women's Haircut", price: 799, durationMinutes: 45, category: 'HAIR' },
-                    { id: 's2', name: 'Hair Spa & Polish', price: 999, durationMinutes: 60, category: 'HAIR' },
-                  ],
-                  totalAmount: 1798,
-                  dateStr: 'Today, ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                  timeSlot: '04:30 PM',
-                  status: 'CONFIRMED',
-                  staffName: 'Priya Sharma',
-                  createdTime: Date.now(),
-                };
-                setConfirmedModalBooking(dummyBooking);
-              }}
+              isAppointmentDismissed={isAppointmentDismissed}
+              onDismissAppointment={() => setIsAppointmentDismissed(true)}
             />
           )}
 
@@ -656,6 +793,7 @@ export default function App() {
             <SearchScreen
               salons={salons}
               favorites={favorites}
+              userCity={userLocation.city}
               onToggleFavorite={handleToggleFavorite}
               onSelectSalon={handleSelectSalon}
               onBack={() => setCurrentScreen('home')}
@@ -726,6 +864,7 @@ export default function App() {
               favoritesCount={favorites.length}
               bookings={bookings}
               onNavigate={(s) => setCurrentScreen(s)}
+              onBack={handleBack}
               onOpenLocation={() => setCurrentScreen('location-modal')}
               onAvatarUpdate={(newAvatar) => setProfileAvatar(newAvatar)}
             />
@@ -733,21 +872,21 @@ export default function App() {
 
           {currentScreen === 'saved-addresses' && (
             <SavedAddressesScreen
-              onBack={() => setCurrentScreen('profile')}
+              onBack={handleBack}
               onNavigate={(s) => setCurrentScreen(s)}
             />
           )}
 
           {currentScreen === 'support' && (
             <SupportScreen
-              onBack={() => setCurrentScreen('profile')}
+              onBack={handleBack}
               onNavigate={(s) => setCurrentScreen(s)}
             />
           )}
 
           {currentScreen === 'settings' && (
             <SettingsScreen
-              onBack={() => setCurrentScreen('profile')}
+              onBack={handleBack}
               onNavigate={(s) => setCurrentScreen(s)}
               onLogout={() => {
                 supabase.auth.signOut();
@@ -764,6 +903,23 @@ export default function App() {
                 setCurrentScreen('home');
               }}
               onClose={() => setCurrentScreen('home')}
+            />
+          )}
+
+          {/* Safe Fallback for any unhandled screen state to prevent white screen */}
+          {!['welcome', 'home', 'search', 'salon-detail', 'checkout', 'bookings', 'favourites', 'rewards', 'profile', 'saved-addresses', 'support', 'settings', 'location-modal'].includes(currentScreen) && (
+            <HomeScreen
+              location={userLocation}
+              salons={salons}
+              favorites={favorites}
+              recentlyViewed={recentlyViewed}
+              bookings={bookings}
+              onToggleFavorite={handleToggleFavorite}
+              onSelectSalon={handleSelectSalon}
+              onNavigate={(s) => setCurrentScreen(s)}
+              onOpenLocationSelector={() => setCurrentScreen('location-modal')}
+              isAppointmentDismissed={isAppointmentDismissed}
+              onDismissAppointment={() => setIsAppointmentDismissed(true)}
             />
           )}
         </main>
@@ -823,18 +979,33 @@ export default function App() {
         onInstall={() => setDeferredPrompt(null)} 
       />
 
-      <Modal isOpen={isInstallModalOpen} onClose={() => setIsInstallModalOpen(false)} title="Install Application">
+      <Modal isOpen={isInstallModalOpen} onClose={() => {
+        setIsInstallModalOpen(false);
+        setHasDismissedInSession(true);
+        setIsPwaDismissedPermanently(localStorage.getItem('nexora_pwa_dismissed') === 'true');
+      }} title="Install Application">
         <InstallApp 
-          onClose={() => setIsInstallModalOpen(false)} 
+          onClose={() => {
+            setIsInstallModalOpen(false);
+            setHasDismissedInSession(true);
+            setIsPwaDismissedPermanently(localStorage.getItem('nexora_pwa_dismissed') === 'true');
+          }} 
           onInstall={() => {
             if (deferredPrompt) {
               deferredPrompt.prompt();
               deferredPrompt.userChoice.then((choiceResult: any) => {
                 if (choiceResult.outcome === 'accepted') {
                   setDeferredPrompt(null);
+                  setIsAppInstalled(true);
+                  localStorage.setItem('nexora_app_installed', 'true');
                 }
               });
+            } else {
+              // Mock success if no prompt is available (for preview)
+              setIsAppInstalled(true);
+              localStorage.setItem('nexora_app_installed', 'true');
             }
+            setIsPwaDismissedPermanently(localStorage.getItem('nexora_pwa_dismissed') === 'true');
             setIsInstallModalOpen(false);
           }} 
         />

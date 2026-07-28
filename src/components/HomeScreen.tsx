@@ -4,32 +4,52 @@ import { Salon, Screen, UserLocation, Booking } from '../types';
 import { BANNER_URL, INITIAL_BOOKINGS } from '../data/mockData';
 import { SalonCardSkeleton } from './Skeleton';
 import { OfflineDashboardCard } from './OfflineDashboardCard';
+import { SmartSearchFilterBar } from './SmartSearchFilterBar';
+import { TopRatedSection } from './TopRatedSection';
+import { NexoraLeaderboardSection } from './NexoraLeaderboardSection';
 
 interface HomeScreenProps {
   location: UserLocation;
   salons: Salon[];
   favorites: string[];
+  recentlyViewed?: string[];
   bookings?: Booking[];
   onToggleFavorite: (salonId: string) => void;
   onSelectSalon: (salon: Salon) => void;
   onNavigate: (screen: Screen) => void;
   onOpenLocationSelector: () => void;
-  onTestBooking?: () => void;
+  isAppointmentDismissed?: boolean;
+  onDismissAppointment?: () => void;
 }
+
+const CATEGORY_MAPPING: Record<string, string[]> = {
+  'Hair': ['Hair Salon', 'Hair Stylist', 'Hair Spa', 'Hair Color', 'Hair Cutting'],
+  'Skin': ['Facial Clinic', 'Skincare Studio', 'Dermatology', 'Facial Spa'],
+  'Nails': ['Nail Salon', 'Nail Art', 'Manicure', 'Pedicure'],
+  'Spa': ['Luxury Spa', 'Wellness Spa', 'Steam', 'Sauna', 'Relaxation Center'],
+  'Makeup': ['Bridal Makeup', 'Party Makeup', 'Professional Makeup Artist'],
+  'Barber Shop': ["Men's Haircut", 'Beard Styling', 'Shaving', 'Grooming'],
+  'Beauty': ['Beauty Parlour', 'Beauty Salon', 'Threading', 'Waxing', 'Eyebrows', 'Bleach'],
+  'Massage & Wellness': ['Body Massage', 'Deep Tissue Massage', 'Thai Massage', 'Ayurvedic Massage', 'Wellness Center'],
+  'Tattoo & Piercing': ['Tattoo Studio', 'Tattoo Artist', 'Piercing Studio', 'Body Art']
+};
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   location,
   salons,
   favorites,
+  recentlyViewed = [],
   bookings,
   onToggleFavorite,
   onSelectSalon,
   onNavigate,
   onOpenLocationSelector,
-  onTestBooking,
+  isAppointmentDismissed,
+  onDismissAppointment,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [smartFilter, setSmartFilter] = useState<'all' | 'top-rated-city' | 'top-nexora'>('all');
   const [recommendationFilter, setRecommendationFilter] = useState<'all' | 'near' | 'category' | 'top'>('all');
   const [topTab, setTopTab] = useState<'frequent' | 'trending'>('frequent');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -44,6 +64,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const radiusOptions = [2, 5, 10, 15, 20, 25, 30];
   const sortOptions = ['Default', 'Price: Low to High', 'Price: High to Low', 'Highest Rated'];
   const audienceOptions = ['All', 'Unisex', 'Male / Men', 'Female / Women', 'Kids / Children'];
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 600);
@@ -266,6 +290,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         reasons.push(`✨ Popular for ${salon.tags[0]}`);
       }
 
+      // 2.5 Frequently Viewed Heuristic
+      if (recentlyViewed.includes(salon.id)) {
+        score += 20;
+        reasons.push('👁️ Frequently viewed studio');
+      }
+
       // 3. Rating & Quality Heuristic
       if (salon.rating >= 4.8) {
         score += 20;
@@ -305,7 +335,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
 
     return scored;
-  }, [salons, location, preferredCategories, recommendationFilter]);
+  }, [salons, location, preferredCategories, recommendationFilter, recentlyViewed]);
 
   const categories = [
     { id: 'All', label: 'All', image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=200&q=80' },
@@ -315,42 +345,103 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     { id: 'Spa', label: 'Spa', image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=200&q=80' },
     { id: 'Makeup', label: 'Makeup', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=200&q=80' },
     { id: 'Barber Shop', label: 'Barber Shop', image: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=200&q=80' },
-    { id: 'Beauty Parlour', label: 'Beauty Parlour', image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=200&q=80' },
+    { id: 'Beauty', label: 'Beauty', image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=200&q=80' },
     { id: 'Massage & Wellness', label: 'Massage & Wellness', image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=200&q=80' },
     { id: 'Tattoo & Piercing', label: 'Tattoo & Piercing', image: 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=200&q=80' },
   ];
 
-  const filteredSalons = salons.filter((salon) => {
-    const matchesCategory =
-      selectedCategory === 'All' ||
-      salon.tags.some((t) => t.toLowerCase().includes(selectedCategory.toLowerCase())) ||
-      salon.services.some((s) => s.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+  const filteredSalons = useMemo(() => {
+    // Create a map of recommendation scores for quick lookup during sorting
+    const recScoresMap = new Map<string, number>();
+    recommendedSalons.forEach(item => {
+      recScoresMap.set(item.salon.id, item.score);
+    });
 
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      salon.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      salon.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      salon.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+    return salons.filter((salon) => {
+      // 1. Category Filtering Logic
+      const matchesCategory =
+        selectedCategory === 'All' ||
+        (() => {
+          // Get keywords for the selected category from mapping
+          const keywords = CATEGORY_MAPPING[selectedCategory] || [selectedCategory];
+          return keywords.some((keyword) => {
+            const k = keyword.toLowerCase();
+            return (
+              (salon.type && salon.type.toLowerCase().includes(k)) ||
+              (salon.category && salon.category.toLowerCase().includes(k)) ||
+              (salon.tags && salon.tags.some(t => t.toLowerCase().includes(k))) ||
+              (salon.services && salon.services.some(s => s.category.toLowerCase().includes(k))) ||
+              (salon.name && salon.name.toLowerCase().includes(k))
+            );
+          });
+        })();
 
-    const matchesRadius = salon.distanceKm <= filterRadius;
+      // 2. Global Search Logic
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        (salon.name && salon.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (salon.area && salon.area.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (salon.tags && salon.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())));
 
-    const matchesArea = filterArea === 'All' || salon.area.toLowerCase().includes(filterArea.toLowerCase()) || filterArea.toLowerCase().includes(salon.area.toLowerCase());
+      // 3. Location Radius Logic
+      const matchesRadius = salon.distanceKm <= filterRadius;
 
-    const matchesAudience = filterAudience === 'All' || (() => {
-      if (filterAudience === 'Unisex') return salon.genderCategory === 'Unisex';
-      if (filterAudience === 'Male / Men') return salon.genderCategory === 'Men Only' || salon.genderCategory === 'Unisex';
-      if (filterAudience === 'Female / Women') return salon.genderCategory === 'Women Only' || salon.genderCategory === 'Unisex';
-      if (filterAudience === 'Kids / Children') return salon.tags.some(t => t.toLowerCase().includes('kid') || t.toLowerCase().includes('child'));
-      return true;
-    })();
+      // 4. Specific Area Filter
+      const matchesArea = filterArea === 'All' || 
+        salon.area.toLowerCase().includes(filterArea.toLowerCase()) || 
+        filterArea.toLowerCase().includes(salon.area.toLowerCase());
 
-    return matchesCategory && matchesSearch && matchesRadius && matchesArea && matchesAudience;
-  }).sort((a, b) => {
-    if (sortBy === 'Price: Low to High') return a.startingPrice - b.startingPrice;
-    if (sortBy === 'Price: High to Low') return b.startingPrice - a.startingPrice;
-    if (sortBy === 'Highest Rated') return b.rating - a.rating;
-    return 0;
-  });
+      // 5. Target Audience Filter
+      const matchesAudience = filterAudience === 'All' || (() => {
+        if (filterAudience === 'Unisex') return salon.genderCategory === 'Unisex';
+        if (filterAudience === 'Male / Men') return salon.genderCategory === 'Men Only' || salon.genderCategory === 'Unisex';
+        if (filterAudience === 'Female / Women') return salon.genderCategory === 'Women Only' || salon.genderCategory === 'Unisex';
+        if (filterAudience === 'Kids / Children') return salon.tags.some(t => t.toLowerCase().includes('kid') || t.toLowerCase().includes('child'));
+        return true;
+      })();
+
+      return matchesCategory && matchesSearch && matchesRadius && matchesArea && matchesAudience;
+    }).sort((a, b) => {
+      // Smart Filter Priority Overrides
+      if (smartFilter === 'top-rated-city') {
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        const aRev = a.verifiedReviewsCount || a.reviewCount || 0;
+        const bRev = b.verifiedReviewsCount || b.reviewCount || 0;
+        if (bRev !== aRev) return bRev - aRev;
+        return (b.lastActiveTime || 0) - (a.lastActiveTime || 0);
+      }
+      if (smartFilter === 'top-nexora') {
+        const aBookings = a.completedBookings || Math.floor(a.rating * 80);
+        const bBookings = b.completedBookings || Math.floor(b.rating * 80);
+        if (bBookings !== aBookings) return bBookings - aBookings;
+        return b.rating - a.rating;
+      }
+
+      // Priority 0: Manual Sort Overrides (If user explicitly chooses a sort method)
+      if (sortBy === 'Price: Low to High') return a.startingPrice - b.startingPrice;
+      if (sortBy === 'Price: High to Low') return b.startingPrice - a.startingPrice;
+      if (sortBy === 'Highest Rated') return b.rating - a.rating;
+
+      // Priority 1: Favorites
+      const aFav = favorites.includes(a.id) ? 1 : 0;
+      const bFav = favorites.includes(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+
+      // Priority 2: Previously Visited / Booked Services
+      const aBooked = userBookings.some(bk => bk.salonId === a.id) ? 1 : 0;
+      const bBooked = userBookings.some(bk => bk.salonId === b.id) ? 1 : 0;
+      if (aBooked !== bBooked) return bBooked - aBooked;
+
+      // Priority 3: Recommended Score (from recommendation engine)
+      const aScore = recScoresMap.get(a.id) || 0;
+      const bScore = recScoresMap.get(b.id) || 0;
+      if (aScore !== bScore) return bScore - aScore;
+
+      // Priority 4: Default fallback (Rating and then Distance)
+      if (b.rating !== a.rating) return b.rating - a.rating;
+      return a.distanceKm - b.distanceKm;
+    });
+  }, [salons, selectedCategory, searchQuery, smartFilter, filterRadius, filterArea, filterAudience, sortBy, favorites, userBookings, recommendedSalons]);
 
   const nextBooking = useMemo(() => {
     return userBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING');
@@ -375,17 +466,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </span>
             </button>
           </div>
-
-          {onTestBooking && (
-            <button
-              onClick={onTestBooking}
-              className="px-3 py-1.5 bg-[#fde7f3] hover:bg-[#e6007e] text-[#e6007e] hover:text-white border border-[#fcd5e8] text-[12px] font-bold rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              title="Test Booking Confirmation Modal"
-            >
-              <span className="material-symbols-outlined text-[16px]">verified</span>
-              <span>Test Booking</span>
-            </button>
-          )}
         </div>
 
         {/* Search Bar */}
@@ -419,26 +499,44 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </button>
           )}
         </div>
+
+        {/* Permanent Smart Search Filters */}
+        <SmartSearchFilterBar
+          activeFilter={smartFilter}
+          userCity={location.city || 'Jaipur'}
+          onSelectFilter={setSmartFilter}
+        />
       </section>
 
       {/* Offline / Cached Appointment Dashboard Card */}
-      {nextBooking && (
-        <section className="animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-[15px] font-bold text-[#26181c] flex items-center gap-2">
-              <span className="w-1 h-5 bg-[#e6007e] rounded-full" />
-              Upcoming Appointment
-            </h2>
-            <button 
-              onClick={() => onNavigate('bookings')}
-              className="text-[12px] font-bold text-[#e6007e] hover:underline"
-            >
-              View All
-            </button>
-          </div>
-          <OfflineDashboardCard booking={nextBooking} />
-        </section>
-      )}
+      <AnimatePresence>
+        {nextBooking && !isAppointmentDismissed && (
+          <motion.section 
+            initial={{ opacity: 0, y: -20, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -20, height: 0 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center justify-between mb-3 px-1 pt-1">
+              <h2 className="text-[15px] font-bold text-[#26181c] flex items-center gap-2">
+                <span className="w-1 h-5 bg-[#e6007e] rounded-full" />
+                Upcoming Appointment
+              </h2>
+              <button 
+                onClick={() => onNavigate('bookings')}
+                className="text-[12px] font-bold text-[#e6007e] hover:underline"
+              >
+                View All
+              </button>
+            </div>
+            <OfflineDashboardCard 
+              booking={nextBooking} 
+              onClose={onDismissAppointment}
+            />
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       {/* Category Grid / Carousel */}
       <section className="-mx-5 px-5 relative group/cat">
@@ -454,7 +552,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Category List */}
         <div
           ref={categoryRef}
-          className="flex overflow-x-auto gap-4 pt-3 pb-2 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2"
+          className="flex overflow-x-auto gap-4 pt-3 pb-4 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2"
         >
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
@@ -462,15 +560,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className="flex flex-col items-center gap-2 min-w-[72px] snap-start group/btn transition-transform active:scale-95 shrink-0 cursor-pointer"
+                className="flex flex-col items-center gap-2 min-w-[72px] snap-start group/btn transition-transform active:scale-95 shrink-0 cursor-pointer relative"
               >
                 <div
-                  className={`w-16 h-16 rounded-full overflow-hidden p-0.5 transition-all shadow-sm relative ${
+                  className={`w-16 h-16 rounded-full overflow-hidden p-0.5 transition-all shadow-sm relative z-10 ${
                     isSelected
-                      ? 'ring-2 ring-[#e6007e] ring-offset-2 ring-offset-white shadow-md shadow-[#e6007e]/20 scale-105'
+                      ? 'shadow-md shadow-[#e6007e]/20 scale-105'
                       : 'border border-[#f0d8e2] group-hover/btn:border-[#e6007e] group-hover/btn:scale-105'
                   }`}
                 >
+                  {isSelected && (
+                    <motion.div
+                      layoutId="activeCategoryCircle"
+                      className="absolute inset-0 rounded-full border-2 border-[#e6007e] z-20"
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
                   <img
                     src={cat.image}
                     alt={cat.label}
@@ -479,12 +584,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   />
                 </div>
                 <span
-                  className={`text-[12px] font-medium transition-colors text-center line-clamp-1 max-w-[80px] ${
+                  className={`text-[12px] font-medium transition-colors text-center line-clamp-1 max-w-[80px] relative z-10 ${
                     isSelected ? 'text-[#e6007e] font-bold' : 'text-[#26181c] group-hover/btn:text-[#e6007e]'
                   }`}
                 >
                   {cat.label}
                 </span>
+                {isSelected && (
+                  <motion.div
+                    layoutId="activeCategoryDot"
+                    className="absolute -bottom-1 w-1.5 h-1.5 bg-[#e6007e] rounded-full"
+                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
               </button>
             );
           })}
@@ -499,6 +611,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <span className="material-symbols-outlined text-[20px]">chevron_right</span>
         </button>
       </section>
+
+      {/* 1. ⭐ Top Rated in [City] Section */}
+      <TopRatedSection
+        salons={salons}
+        userCity={location.city || 'Jaipur'}
+        favorites={favorites}
+        onToggleFavorite={onToggleFavorite}
+        onSelectSalon={onSelectSalon}
+      />
+
+      {/* 2. 🏆 Top Salon by Nexora Section */}
+      <NexoraLeaderboardSection
+        salons={salons}
+        userCity={location.city || 'Jaipur'}
+        onSelectSalon={onSelectSalon}
+      />
 
       {/* Frequent Services & Trending Treatments Section (Booking History Analysis) */}
       <section className="flex flex-col gap-3.5 bg-white p-4 sm:p-5 rounded-[28px] border border-[#f0d8e2] shadow-xs">
@@ -996,7 +1124,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <SalonCardSkeleton key={i} />)
           ) : (
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {filteredSalons.length > 0 ? (
                 filteredSalons.map((salon) => {
                   const isFav = favorites.includes(salon.id);
@@ -1119,16 +1247,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <div className="w-16 h-16 bg-[#fdf2f8] rounded-full flex items-center justify-center mx-auto mb-4">
                     <span className="material-symbols-outlined text-[32px] text-[#e6007e]">search_off</span>
                   </div>
-                  <h3 className="font-bold text-[#26181c] text-lg">No shops available</h3>
-                  <p className="text-sm text-[#5a3f47] mt-1 max-w-[240px] mx-auto">
+                  <h3 className="font-bold text-[#26181c] text-lg">
                     {selectedCategory !== 'All' 
-                      ? `No shops available in the "${selectedCategory}" category.`
+                      ? 'No shops available in this category.'
+                      : 'No shops available'}
+                  </h3>
+                  <p className="text-sm text-[#5a3f47] mt-1 max-w-[280px] mx-auto">
+                    {selectedCategory !== 'All' 
+                      ? `There are no businesses listed under "${selectedCategory}" right now.`
                       : 'No salons found matching your criteria.'}
                   </p>
                   <button
                     onClick={() => {
                       setSelectedCategory('All');
                       setSearchQuery('');
+                      setSmartFilter('all');
                       setFilterRadius(30);
                       setSortBy('Default');
                       setFilterArea('All');
