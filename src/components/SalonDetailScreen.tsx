@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Salon, Service, Staff, ServiceReview, WaitlistEntry, Booking } from '../types';
 import { ServiceReviewModal } from './ServiceReviewModal';
 import { WaitlistModal } from './WaitlistModal';
+import { MiniCalendar } from './MiniCalendar';
 import { ServiceItemSkeleton, Skeleton } from './Skeleton';
 
 interface SalonDetailScreenProps {
@@ -100,7 +101,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   // Waitlist States
   const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState<boolean>(false);
   const [waitlistTargetSlot, setWaitlistTargetSlot] = useState<{ slot: string; dateStr: string } | null>(null);
-  const [selectedSlotDateIdx, setSelectedSlotDateIdx] = useState<number>(0);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const today = new Date();
+    // Default to today
+    return today;
+  });
   const [waitlistAlertToast, setWaitlistAlertToast] = useState<string | null>(null);
 
   // Service Category Filter & Accordion States
@@ -124,14 +129,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
   };
 
-  const slotDates = [
-    { dayName: 'Wed', dateNum: '24', fullDate: 'Wed 24 Jul' },
-    { dayName: 'Thu', dateNum: '25', fullDate: 'Thu 25 Jul' },
-    { dayName: 'Fri', dateNum: '26', fullDate: 'Fri 26 Jul' },
-    { dayName: 'Sat', dateNum: '27', fullDate: 'Sat 27 Jul' },
-  ];
-
-  const currentSlotDate = slotDates[selectedSlotDateIdx] || slotDates[0];
+  const currentSlotDateStr = selectedDate.toLocaleString('default', { 
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'short' 
+  });
 
   const timeSlotsWithAvailability = [
     { time: '09:00 AM', isAvailable: false, period: 'Morning' },
@@ -179,7 +181,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   }, [waitlistEntries]);
 
   const handleOpenWaitlistModal = (slotTime: string) => {
-    setWaitlistTargetSlot({ slot: slotTime, dateStr: currentSlotDate.fullDate });
+    setWaitlistTargetSlot({ slot: slotTime, dateStr: currentSlotDateStr });
     setIsWaitlistModalOpen(true);
   };
 
@@ -314,7 +316,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
         onClose={() => setIsWaitlistModalOpen(false)}
         salon={salon}
         timeSlot={waitlistTargetSlot?.slot || '09:00 AM'}
-        dateStr={waitlistTargetSlot?.dateStr || currentSlotDate.fullDate}
+        dateStr={waitlistTargetSlot?.dateStr || currentSlotDateStr}
         selectedServicesSummary={selectedServices.map((s) => s.name).join(', ')}
         onJoinSuccess={handleJoinWaitlistSuccess}
       />
@@ -611,9 +613,9 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                                         <span className="text-[15px] font-semibold text-[#26181c]">
                                           {service.name}
                                         </span>
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fde7f3] border border-[#fcd5e8] text-[#e6007e] text-[10px] font-bold shrink-0">
-                                          <span className="material-symbols-outlined text-[12px]">schedule</span>
-                                          {service.durationMinutes} mins
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#fff8f8] border border-[#fce2e7] text-[#e6007e] text-[11px] font-bold shrink-0 shadow-sm transition-transform hover:scale-105">
+                                          <span className="material-symbols-outlined text-[14px]">timer</span>
+                                          {service.durationMinutes} min
                                         </span>
                                       </div>
                                       <span className="text-[12px] text-[#5a3f47] font-medium">
@@ -700,26 +702,11 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
                 </div>
               )}
 
-              {/* Date Selector Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {slotDates.map((item, idx) => {
-                  const isSel = selectedSlotDateIdx === idx;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedSlotDateIdx(idx)}
-                      className={`px-3.5 py-2 rounded-2xl flex flex-col items-center min-w-[72px] transition-all cursor-pointer ${
-                        isSel
-                          ? 'bg-[#e6007e] text-white shadow-sm font-bold scale-105'
-                          : 'bg-white text-[#5a3f47] border border-[#f0d8e2] hover:bg-[#fff0f3]'
-                      }`}
-                    >
-                      <span className="text-[10px] uppercase font-medium">{item.dayName}</span>
-                      <span className="text-[14px] font-extrabold">{item.dateNum} Jul</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Date Selector Mini Calendar */}
+              <MiniCalendar 
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+              />
 
               {/* Active User Waitlists Banner for this salon */}
               {waitlistEntries.filter((e) => e.salonId === salon.id).length > 0 && (
@@ -1118,9 +1105,17 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
 
       {/* Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe z-50 max-w-md mx-auto shadow-[0_-8px_30px_rgba(0,0,0,0.08)] mb-safe">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex flex-col">
-            <span className="text-[11px] text-[#5a3f47] font-medium">Selected ({selectedServices.length} items)</span>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[11px] text-[#5a3f47] font-medium">Selected ({selectedServices.length} items)</span>
+              {selectedServices.length > 0 && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#fff0f3] text-[#e6007e] text-[9px] font-bold border border-[#fcd5e8]">
+                  <span className="material-symbols-outlined text-[12px]">timer</span>
+                  {selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)} min
+                </div>
+              )}
+            </div>
             <span className="text-[20px] font-bold text-[#8e004b]">
               ₹{totalPrice > 0 ? totalPrice : salon.startingPrice}
             </span>

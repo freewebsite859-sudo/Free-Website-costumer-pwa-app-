@@ -118,7 +118,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
             <>
               {/* Order Summary Bento Grid */}
               <section className="flex flex-col gap-2 mt-4">
-            <h2 className="text-[20px] font-semibold text-[#26181c] mb-2">Booking Summary</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-[20px] font-semibold text-[#26181c]">Booking Summary</h2>
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#fff0f3] text-[#e6007e] text-[11px] font-bold border border-[#fcd5e8]">
+                <span className="material-symbols-outlined text-[14px]">timer</span>
+                {selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)} min
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               
               {/* Service Card */}

@@ -31,6 +31,8 @@ import { RoleAssignedConflict } from './components/auth/RoleAssignedConflict';
 import { ScanUpiQrModal } from './components/ScanUpiQrModal';
 import { AddUpiModal, SavedUpi } from './components/AddUpiModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { InstallApp } from './components/InstallApp';
+import { Modal } from './components/Modal';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -240,6 +242,8 @@ export default function App() {
   const [isGlobalScanQrOpen, setIsGlobalScanQrOpen] = useState(false);
   const [isGlobalAddUpiOpen, setIsGlobalAddUpiOpen] = useState(false);
   const [globalPrefilledUpi, setGlobalPrefilledUpi] = useState('');
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isPwaDismissed, setIsPwaDismissed] = useState(() => localStorage.getItem('nexora_pwa_dismissed') === 'true');
 
   // PWA Installation State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -596,6 +600,8 @@ export default function App() {
             onOpenQrScanner={() => setIsGlobalScanQrOpen(true)}
             userAvatar={profileAvatar}
             isSyncing={isSyncing}
+            showInstall={!isPwaDismissed}
+            onInstall={() => setIsInstallModalOpen(true)}
           />
         )}
 
@@ -816,6 +822,23 @@ export default function App() {
         deferredPrompt={deferredPrompt} 
         onInstall={() => setDeferredPrompt(null)} 
       />
+
+      <Modal isOpen={isInstallModalOpen} onClose={() => setIsInstallModalOpen(false)} title="Install Application">
+        <InstallApp 
+          onClose={() => setIsInstallModalOpen(false)} 
+          onInstall={() => {
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              deferredPrompt.userChoice.then((choiceResult: any) => {
+                if (choiceResult.outcome === 'accepted') {
+                  setDeferredPrompt(null);
+                }
+              });
+            }
+            setIsInstallModalOpen(false);
+          }} 
+        />
+      </Modal>
     </div>
   );
 }

@@ -530,7 +530,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {/* Switcher Pills & Scroll Controls */}
           <div className="flex items-center justify-between gap-2 mt-1">
-            <div className="flex flex-1 bg-[#f8eff3] p-1 rounded-2xl gap-1">
+            <div className="flex flex-1 bg-[#f8eff3] p-1 pr-1 pb-[7px] rounded-2xl gap-1">
               <button
                 onClick={() => setTopTab('frequent')}
                 className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -544,7 +544,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </button>
               <button
                 onClick={() => setTopTab('trending')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer focus:outline-none focus:border-[var(--color-primary-pink)] focus:border-2 border-transparent transition-all duration-300 ${
                   topTab === 'trending'
                     ? 'bg-white text-[#e6007e] shadow-xs'
                     : 'text-[#5a3f47] hover:text-[#26181c]'
@@ -995,135 +995,152 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="grid grid-cols-1 gap-6">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <SalonCardSkeleton key={i} />)
-          ) : filteredSalons.length > 0 ? (
-            filteredSalons.map((salon) => {
-            const isFav = favorites.includes(salon.id);
-            return (
-              <div
-                key={salon.id}
-                className="flex flex-col bg-white rounded-[20px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-all duration-300 group"
-              >
-                {/* Salon Image Header */}
-                <div
-                  className="relative w-full h-[200px] cursor-pointer overflow-hidden"
-                  onClick={() => onSelectSalon(salon)}
-                >
-                  <img
-                    src={salon.image}
-                    alt={salon.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Badges */}
-                  <div className="absolute top-4 left-4 flex gap-2">
-                    {salon.verified && (
-                      <div className="bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
-                        <span className="material-symbols-outlined text-[14px] text-[#0353db]">verified</span>
-                        <span className="text-[12px] text-[#26181c] font-semibold">Verified</span>
-                      </div>
-                    )}
-                    {salon.isNew && (
-                      <div className="bg-[#e6007e]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
-                        <span className="text-[12px] text-white font-semibold">New</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Favorite Toggle */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(salon.id);
-                    }}
-                    className="absolute top-4 right-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-[#8c7077] shadow-sm hover:text-[#e6007e] active:scale-90 transition-all"
-                    aria-label="Toggle favorite"
-                  >
-                    <span
-                      className={`material-symbols-outlined text-[20px] ${
-                        isFav ? 'text-[#e6007e] fill-current' : ''
-                      }`}
-                    >
-                      favorite
-                    </span>
-                  </button>
-                </div>
-
-                {/* Card Content */}
-                <div className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <h3
-                        onClick={() => onSelectSalon(salon)}
-                        className="text-[18px] text-[#26181c] font-semibold line-clamp-1 cursor-pointer hover:text-[#e6007e] transition-colors"
-                      >
-                        {salon.name}
-                      </h3>
-                      <p className="text-[14px] text-[#5a3f47] flex items-center gap-1 mt-0.5">
-                        <span className="material-symbols-outlined text-[16px] text-[#e6007e]">location_on</span>
-                        <span className="truncate">
-                          {salon.distanceKm} km • {salon.area}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-1 bg-[#ffe8ed] py-1 px-2 rounded-lg">
-                        <span className="material-symbols-outlined text-[16px] text-amber-500">star</span>
-                        <span className="text-[13px] text-[#26181c] font-bold">{salon.rating}</span>
-                      </div>
-                      <span className="text-[11px] text-[#8c7077] mt-0.5">({salon.reviewCount ?? salon.reviewsCount}+ reviews)</span>
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {salon.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2.5 py-1 bg-[#f6dce2] text-[#26181c] text-[12px] font-medium rounded-full"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Pricing & Action */}
-                  <div className="flex items-center justify-between mt-1 pt-3 border-t border-[#fce2e7]">
-                    <div className="flex flex-col">
-                      <span className="text-[12px] text-[#8c7077]">Services from</span>
-                      <span className="text-[18px] font-bold text-[#26181c]">₹{salon.startingPrice}</span>
-                    </div>
-                    <button
-                      onClick={() => onSelectSalon(salon)}
-                      className="h-10 px-6 bg-[#8e004b] text-white text-[13px] font-semibold rounded-xl hover:bg-[#e6007e] active:scale-95 transition-all shadow-sm"
-                    >
-                      Book
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
           ) : (
+            <AnimatePresence mode="popLayout">
+              {filteredSalons.length > 0 ? (
+                filteredSalons.map((salon) => {
+                  const isFav = favorites.includes(salon.id);
+                  return (
+                    <motion.div
+                      key={salon.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col bg-white rounded-[20px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] transition-shadow duration-300 group"
+                    >
+                      {/* Salon Image Header */}
+                      <div
+                        className="relative w-full h-[200px] cursor-pointer overflow-hidden"
+                        onClick={() => onSelectSalon(salon)}
+                      >
+                        <img
+                          src={salon.image}
+                          alt={salon.name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        {/* Badges */}
+                        <div className="absolute top-4 left-4 flex gap-2">
+                          {salon.verified && (
+                            <div className="bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                              <span className="material-symbols-outlined text-[14px] text-[#0353db]">verified</span>
+                              <span className="text-[12px] text-[#26181c] font-semibold">Verified</span>
+                            </div>
+                          )}
+                          {salon.isNew && (
+                            <div className="bg-[#e6007e]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                              <span className="text-[12px] text-white font-semibold">New</span>
+                            </div>
+                          )}
+                        </div>
 
+                        {/* Favorite Toggle */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(salon.id);
+                          }}
+                          className="absolute top-4 right-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-[#8c7077] shadow-sm hover:text-[#e6007e] active:scale-90 transition-all cursor-pointer"
+                          aria-label="Toggle favorite"
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[20px] ${
+                              isFav ? 'text-[#e6007e] fill-current' : ''
+                            }`}
+                          >
+                            favorite
+                          </span>
+                        </button>
+                      </div>
 
-            <div className="text-center py-12 bg-white rounded-2xl p-6">
-              <span className="material-symbols-outlined text-[48px] text-[#e0bec6] mb-2">search_off</span>
-              <h3 className="font-semibold text-[#26181c]">No salons found</h3>
-              <p className="text-sm text-[#5a3f47] mt-1">Try clearing filters or changing search keywords.</p>
-              <button
-                onClick={() => {
-                  setSelectedCategory('All');
-                  setSearchQuery('');
-                  setFilterRadius(30);
-                  setSortBy('Default');
-                  setFilterArea('All');
-                  setFilterAudience('All');
-                }}
-                className="mt-4 px-4 py-2 bg-[#fde7f3] text-[#e6007e] rounded-xl text-xs font-semibold cursor-pointer"
-              >
-                Reset Filters
-              </button>
-            </div>
+                      {/* Card Content */}
+                      <div className="p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <h3
+                              onClick={() => onSelectSalon(salon)}
+                              className="text-[18px] text-[#26181c] font-semibold line-clamp-1 cursor-pointer hover:text-[#e6007e] transition-colors"
+                            >
+                              {salon.name}
+                            </h3>
+                            <p className="text-[14px] text-[#5a3f47] flex items-center gap-1 mt-0.5">
+                              <span className="material-symbols-outlined text-[16px] text-[#e6007e]">location_on</span>
+                              <span className="truncate">
+                                {salon.distanceKm} km • {salon.area}
+                              </span>
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1 bg-[#ffe8ed] py-1 px-2 rounded-lg">
+                              <span className="material-symbols-outlined text-[16px] text-amber-500">star</span>
+                              <span className="text-[13px] text-[#26181c] font-bold">{salon.rating}</span>
+                            </div>
+                            <span className="text-[11px] text-[#8c7077] mt-0.5">({salon.reviewCount ?? salon.reviewsCount}+ reviews)</span>
+                          </div>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {salon.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2.5 py-1 bg-[#f6dce2] text-[#26181c] text-[12px] font-medium rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Pricing & Action */}
+                        <div className="flex items-center justify-between mt-1 pt-3 border-t border-[#fce2e7] w-full">
+                          <div className="flex flex-col">
+                            <span className="text-[12px] text-[#8c7077] font-bold">Services from</span>
+                            <span className="text-[18px] font-bold text-[#26181c]">₹{salon.startingPrice}</span>
+                          </div>
+                          <button
+                            onClick={() => onSelectSalon(salon)}
+                            className="h-10 px-6 bg-[#8e004b] text-white text-[13px] font-semibold rounded-xl hover:bg-[#e6007e] active:scale-95 transition-all shadow-sm cursor-pointer"
+                          >
+                            Book
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-12 bg-white rounded-[28px] p-6 border border-[#f0d8e2] shadow-xs col-span-full"
+                >
+                  <div className="w-16 h-16 bg-[#fdf2f8] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="material-symbols-outlined text-[32px] text-[#e6007e]">search_off</span>
+                  </div>
+                  <h3 className="font-bold text-[#26181c] text-lg">No shops available</h3>
+                  <p className="text-sm text-[#5a3f47] mt-1 max-w-[240px] mx-auto">
+                    {selectedCategory !== 'All' 
+                      ? `No shops available in the "${selectedCategory}" category.`
+                      : 'No salons found matching your criteria.'}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory('All');
+                      setSearchQuery('');
+                      setFilterRadius(30);
+                      setSortBy('Default');
+                      setFilterArea('All');
+                      setFilterAudience('All');
+                    }}
+                    className="mt-6 px-6 py-2.5 bg-[#e6007e] text-white rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all shadow-md shadow-[#e6007e]/20"
+                  >
+                    Reset Filters
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
       </section>

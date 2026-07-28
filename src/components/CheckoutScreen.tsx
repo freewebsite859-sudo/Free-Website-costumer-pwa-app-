@@ -362,7 +362,13 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl shadow-[0_-12px_40px_rgba(0,0,0,0.08)] pb-safe z-40 max-w-md mx-auto border-t border-[#e8e8e8] mb-safe">
         <div className="flex items-center justify-between mb-3 px-1">
           <div>
-            <p className="text-[12px] text-[#5a3f47] font-medium">Selected Time</p>
+            <p className="text-[12px] text-[#5a3f47] font-medium flex items-center gap-1">
+              Selected Time
+              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#fff0f3] text-[#e6007e] text-[9px] font-bold border border-[#fcd5e8]">
+                <span className="material-symbols-outlined text-[12px]">timer</span>
+                {selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)} min
+              </span>
+            </p>
             <p className="text-[16px] text-[#26181c] font-bold">
               {activeDateObj.fullDate}, {selectedTimeSlot}
             </p>

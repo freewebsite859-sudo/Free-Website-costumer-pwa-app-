@@ -12,11 +12,12 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = ({ deferredProm
   useEffect(() => {
     if (deferredPrompt) {
       // Check if user has already dismissed or installed
+      const isDismissedForever = localStorage.getItem('nexora_pwa_dismissed') === 'true';
       const dismissedAt = localStorage.getItem('nexora_pwa_dismissed_at');
       const now = Date.now();
       const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
-      if (!dismissedAt || (now - parseInt(dismissedAt)) > SEVEN_DAYS) {
+      if (!isDismissedForever && (!dismissedAt || (now - parseInt(dismissedAt)) > SEVEN_DAYS)) {
         // Only show after a short delay to not overwhelm the user immediately
         const timer = setTimeout(() => {
           setIsVisible(true);

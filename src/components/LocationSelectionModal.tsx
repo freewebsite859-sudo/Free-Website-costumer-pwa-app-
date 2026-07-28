@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { UserLocation } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
+import { JAIPUR_LOCATIONS, JAIPUR_ZONES } from '../data/locations';
 import {
   LOCATION_PIN_URL,
-  POPULAR_CITIES,
-  RECENT_LOCATIONS,
   LOGO_SQUARE,
 } from '../data/mockData';
 
@@ -19,19 +19,41 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
   onClose,
 }) => {
   const [viewMode, setViewMode] = useState<'permission' | 'picker'>('permission');
-  const [selectedCity, setSelectedCity] = useState<string>(currentLocation.city || 'Mumbai');
-  const [selectedArea, setSelectedArea] = useState<string>(currentLocation.area || 'Bandra West');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedZone, setSelectedZone] = useState<string>('');
+  const [selectedArea, setSelectedArea] = useState<string>('');
+  const [zoneSearch, setZoneSearch] = useState<string>('');
+  const [areaSearch, setAreaSearch] = useState<string>('');
+  const [isZoneOpen, setIsZoneOpen] = useState<boolean>(false);
+  const [isAreaOpen, setIsAreaOpen] = useState<boolean>(false);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [showDeniedModal, setShowDeniedModal] = useState<boolean>(false);
+  const [hasInteracted, setHasInteracted] = useState<boolean>(false);
+
+  const zoneRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+
+  const isValid = selectedZone && selectedArea;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (zoneRef.current && !zoneRef.current.contains(event.target as Node)) {
+        setIsZoneOpen(false);
+      }
+      if (areaRef.current && !areaRef.current.contains(event.target as Node)) {
+        setIsAreaOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleUseGPS = () => {
     setIsLocating(true);
     setTimeout(() => {
       setIsLocating(false);
       const gpsLocation: UserLocation = {
-        city: 'Mumbai',
-        area: 'Bandra West',
+        city: 'Jaipur',
+        area: 'Mansarovar',
         address: 'Current Location via GPS',
         isGPS: true,
       };
@@ -40,27 +62,27 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
   };
 
   const handleConfirmLocation = () => {
+    setHasInteracted(true);
+    if (!isValid) return;
+    
     onSelectLocation({
-      city: selectedCity,
-      area: selectedArea,
+      city: 'Jaipur',
+      area: `${selectedZone} > ${selectedArea}`,
       isGPS: false,
     });
   };
 
-  const suggestedAreas = [
-    { name: 'Bandra West', city: selectedCity },
-    { name: 'Andheri West', city: selectedCity },
-    { name: 'Juhu', city: selectedCity },
-    { name: 'Powai', city: selectedCity },
-    { name: 'Indiranagar', city: 'Bangalore' },
-    { name: 'Koramangala', city: 'Bangalore' },
-  ];
-
-  const filteredAreas = suggestedAreas.filter(
-    (a) =>
-      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.city.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredZones = useMemo(() => 
+    JAIPUR_ZONES.filter(z => z.toLowerCase().includes(zoneSearch.toLowerCase())),
+    [zoneSearch]
   );
+
+  const filteredAreas = useMemo(() => {
+    if (!selectedZone) return [];
+    return (JAIPUR_LOCATIONS[selectedZone] || []).filter(a => 
+      a.toLowerCase().includes(areaSearch.toLowerCase())
+    );
+  }, [selectedZone, areaSearch]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-white flex flex-col max-w-md mx-auto overflow-y-auto animate-in fade-in">
@@ -137,147 +159,222 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-5 animate-in fade-in">
-            {/* Selected City Bar */}
-            <div className="bg-[#fff0f2] rounded-2xl p-4 flex items-center justify-between border border-[#fde7f3] shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#ffd9e2] flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[#8e004b] text-[20px]">
-                    location_city
-                  </span>
+          <div className="flex flex-col gap-6 animate-in fade-in">
+            {/* Location Selection Header */}
+            <div className="flex flex-col gap-1">
+              <h3 className="text-[20px] font-bold text-[#26181c]">Jaipur Location Selection</h3>
+              <p className="text-[13px] text-[#5a3f47]">Select your zone and area for localized results</p>
+            </div>
+
+            {/* Selected Value Preview */}
+            <div className="bg-[#fff0f2] rounded-2xl p-4 flex items-center gap-3 border border-[#fde7f3] shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-[#ffd9e2] flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[#8e004b] text-[20px]">map</span>
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-[11px] font-bold text-[#e6007e] uppercase tracking-wider">Current Selection</span>
+                <span className="text-[15px] font-bold text-[#26181c] truncate">
+                  {selectedZone ? (selectedArea ? `${selectedZone} > ${selectedArea}` : `${selectedZone} > ...`) : 'Select Location'}
+                </span>
+              </div>
+            </div>
+
+            {/* Dropdowns Container */}
+            <div className="flex flex-col gap-4">
+              {/* Zone Dropdown */}
+              <div className="flex flex-col gap-2" ref={zoneRef}>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[14px] font-bold text-[#26181c] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#e6007e]">location_city</span>
+                    Select Zone <span className="text-rose-500">*</span>
+                  </h4>
+                  {hasInteracted && !selectedZone && (
+                    <span className="text-[11px] font-bold text-rose-500 animate-in fade-in slide-in-from-right-2">Zone is required</span>
+                  )}
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[12px] font-medium text-[#5a3f47]">Selected City</span>
-                  <span className="text-[16px] font-bold text-[#26181c]">{selectedCity}</span>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setIsZoneOpen(!isZoneOpen);
+                      setHasInteracted(true);
+                    }}
+                    className={`w-full h-14 px-4 bg-white border ${
+                      isZoneOpen 
+                        ? 'border-[#e6007e] ring-2 ring-[#e6007e]/10' 
+                        : hasInteracted && !selectedZone 
+                          ? 'border-rose-300 bg-rose-50/30' 
+                          : 'border-[#e8e8e8]'
+                    } rounded-2xl flex items-center justify-between transition-all`}
+                  >
+                    <span className={`text-[15px] ${selectedZone ? 'text-[#26181c] font-semibold' : 'text-[#8c7077]'}`}>
+                      {selectedZone || 'Select Zone'}
+                    </span>
+                    <span className={`material-symbols-outlined text-[#e6007e] transition-transform duration-300 ${isZoneOpen ? 'rotate-180' : ''}`}>
+                      expand_more
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isZoneOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#e8e8e8] rounded-2xl shadow-xl z-[110] overflow-hidden flex flex-col"
+                      >
+                        <div className="p-2 border-b border-[#f3f4f6]">
+                          <div className="relative">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8c7077] text-[18px]">search</span>
+                            <input
+                              type="text"
+                              value={zoneSearch}
+                              onChange={(e) => setZoneSearch(e.target.value)}
+                              placeholder="Search zone..."
+                              className="w-full h-10 pl-9 pr-4 bg-[#fcf9f8] text-[14px] rounded-xl outline-none"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {filteredZones.map(zone => (
+                            <button
+                              key={zone}
+                              onClick={() => {
+                                setSelectedZone(zone);
+                                setSelectedArea('');
+                                setAreaSearch('');
+                                setIsZoneOpen(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-[14px] hover:bg-[#fff0f2] transition-colors flex items-center justify-between ${selectedZone === zone ? 'text-[#e6007e] font-bold bg-[#fff0f2]' : 'text-[#26181c]'}`}
+                            >
+                              {zone}
+                              {selectedZone === zone && (
+                                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                              )}
+                            </button>
+                          ))}
+                          {filteredZones.length === 0 && (
+                            <div className="p-4 text-center text-[#8c7077] text-[13px]">No zones found</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
+
+              {/* Area Dropdown */}
+              <div className="flex flex-col gap-2" ref={areaRef}>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[14px] font-bold text-[#26181c] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#e6007e]">pin_drop</span>
+                    Select Area <span className="text-rose-500">*</span>
+                  </h4>
+                  {hasInteracted && selectedZone && !selectedArea && (
+                    <span className="text-[11px] font-bold text-rose-500 animate-in fade-in slide-in-from-right-2">Area is required</span>
+                  )}
+                </div>
+                <div className="relative">
+                  <button
+                    disabled={!selectedZone}
+                    onClick={() => {
+                      setIsAreaOpen(!isAreaOpen);
+                      setHasInteracted(true);
+                    }}
+                    className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between transition-all ${
+                      !selectedZone 
+                        ? 'bg-[#fcfcfc] border-[#f3f3f3] opacity-60' 
+                        : isAreaOpen 
+                          ? 'bg-white border-[#e6007e] ring-2 ring-[#e6007e]/10' 
+                          : hasInteracted && !selectedArea
+                            ? 'border-rose-300 bg-rose-50/30'
+                            : 'border-[#e8e8e8]'
+                    }`}
+                  >
+                    <span className={`text-[15px] ${selectedArea ? 'text-[#26181c] font-semibold' : 'text-[#8c7077]'}`}>
+                      {selectedArea || 'Select Area'}
+                    </span>
+                    <span className={`material-symbols-outlined text-[#e6007e] transition-transform duration-300 ${isAreaOpen ? 'rotate-180' : ''}`}>
+                      expand_more
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isAreaOpen && selectedZone && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#e8e8e8] rounded-2xl shadow-xl z-[110] overflow-hidden flex flex-col"
+                      >
+                        <div className="p-2 border-b border-[#f3f4f6]">
+                          <div className="relative">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8c7077] text-[18px]">search</span>
+                            <input
+                              type="text"
+                              value={areaSearch}
+                              onChange={(e) => setAreaSearch(e.target.value)}
+                              placeholder={`Search area in ${selectedZone}...`}
+                              className="w-full h-10 pl-9 pr-4 bg-[#fcf9f8] text-[14px] rounded-xl outline-none"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[250px] overflow-y-auto">
+                          {filteredAreas.map(area => (
+                            <button
+                              key={area}
+                              onClick={() => {
+                                setSelectedArea(area);
+                                setIsAreaOpen(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-[14px] hover:bg-[#fff0f2] transition-colors flex items-center justify-between ${selectedArea === area ? 'text-[#e6007e] font-bold bg-[#fff0f2]' : 'text-[#26181c]'}`}
+                            >
+                              {area}
+                              {selectedArea === area && (
+                                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                              )}
+                            </button>
+                          ))}
+                          {filteredAreas.length === 0 && (
+                            <div className="p-4 text-center text-[#8c7077] text-[13px]">No areas found</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick GPS Alternative */}
+            <div className="mt-4 p-4 rounded-2xl border border-dashed border-[#e8e8e8] bg-[#fcf9f8]">
               <button
-                onClick={() => {
-                  const nextCity = selectedCity === 'Mumbai' ? 'Bangalore' : 'Mumbai';
-                  setSelectedCity(nextCity);
-                }}
-                className="text-[12px] font-semibold text-[#e6007e] bg-[#fde7f3] px-3.5 py-1.5 rounded-full hover:bg-[#ffe8ed] active:scale-95 transition-all"
+                onClick={handleUseGPS}
+                className="w-full flex items-center justify-center gap-2 text-[14px] font-bold text-[#e6007e] active:scale-95 transition-all"
               >
-                Change
+                <span className="material-symbols-outlined text-[20px]">my_location</span>
+                Or use Current Location via GPS
               </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#8c7077]">
-                search
-              </span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search area in ${selectedCity}`}
-                className="w-full h-14 pl-12 pr-4 bg-[#fcf9f8] text-[#26181c] text-[15px] rounded-2xl border border-[#e8e8e8] outline-none focus:ring-2 focus:ring-[#e6007e]/30 transition-all placeholder:text-[#8c7077]"
-              />
-            </div>
-
-            {/* Popular Cities */}
-            <section className="flex flex-col gap-2">
-              <h3 className="text-[14px] font-bold text-[#26181c]">Popular Cities</h3>
-              <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar -mx-5 px-5">
-                {POPULAR_CITIES.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setSelectedCity(c)}
-                    className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                      selectedCity === c
-                        ? 'bg-[#e6007e] text-white shadow-sm'
-                        : 'bg-[#fde7f3] text-[#e6007e] hover:bg-[#ffe8ed]'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* Suggested Areas */}
-            <section className="flex flex-col gap-3">
-              <h3 className="text-[15px] font-bold text-[#26181c]">Suggested Areas</h3>
-              <div className="bg-white rounded-3xl shadow-sm border border-[#e8e8e8] p-2 flex flex-col gap-1">
-                <button
-                  onClick={handleUseGPS}
-                  className="w-full flex items-center gap-3 p-3.5 rounded-2xl hover:bg-[#fff0f2] text-left transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-full bg-[#fde7f3] flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-[#e6007e] text-[20px]">
-                      my_location
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[15px] font-bold text-[#e6007e]">
-                      Use Current Location
-                    </span>
-                    <span className="text-[12px] text-[#5a3f47]">Using GPS</span>
-                  </div>
-                </button>
-
-                <div className="h-px bg-[#e8e8e8] mx-3 my-0.5" />
-
-                {filteredAreas.map((area) => {
-                  const isSelected = selectedArea === area.name;
-                  return (
-                    <button
-                      key={area.name}
-                      onClick={() => setSelectedArea(area.name)}
-                      className={`w-full flex items-center gap-3 p-3.5 rounded-2xl text-left transition-colors ${
-                        isSelected ? 'bg-[#fff0f2] font-semibold' : 'hover:bg-[#fcf9f8]'
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#fce2e7] flex items-center justify-center shrink-0 text-[#5a3f47]">
-                        <span className="material-symbols-outlined text-[20px]">map</span>
-                      </div>
-                      <div className="flex flex-col flex-1">
-                        <span className="text-[15px] text-[#26181c] font-semibold">{area.name}</span>
-                        <span className="text-[12px] text-[#5a3f47]">{area.city}</span>
-                      </div>
-                      {isSelected && (
-                        <span className="material-symbols-outlined text-[#e6007e]">check_circle</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Recent Locations */}
-            <section className="flex flex-col gap-2 mt-2">
-              <h3 className="text-[14px] font-bold text-[#26181c]">Recent Locations</h3>
-              <div className="bg-white rounded-2xl border border-[#e8e8e8] overflow-hidden">
-                {RECENT_LOCATIONS.map((loc, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setSelectedCity(loc.cityState.split(',')[0]);
-                      setSelectedArea(loc.area);
-                    }}
-                    className="w-full flex items-center gap-3 p-3.5 hover:bg-[#fff0f2] text-left border-b last:border-b-0 border-[#e8e8e8]"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-[#f6dce2] flex items-center justify-center text-[#5a3f47]">
-                      <span className="material-symbols-outlined text-[16px]">location_on</span>
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="text-[14px] font-semibold text-[#26181c]">{loc.area}</span>
-                      <span className="text-[11px] text-[#5a3f47]">{loc.cityState}</span>
-                    </div>
-                    <span className="material-symbols-outlined text-[#8c7077] text-[18px]">
-                      chevron_right
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
             {/* Bottom Sticky Action */}
             <div className="fixed bottom-0 left-0 right-0 pt-5 pb-8 p-5 bg-white/95 backdrop-blur-3xl border-t border-[#e8e8e8] pb-safe z-40 max-w-md mx-auto shadow-[0_-8px_30px_rgba(0,0,0,0.08)] mb-safe">
+              <AnimatePresence>
+                {hasInteracted && !isValid && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="text-center text-[12px] font-bold text-rose-500 mb-3"
+                  >
+                    Please select both Zone and Area to continue
+                  </motion.p>
+                )}
+              </AnimatePresence>
               <button
                 onClick={handleConfirmLocation}
-                className="w-full h-[52px] bg-[#e6007e] text-white text-[15px] font-semibold rounded-2xl shadow-lg shadow-[#e6007e]/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className={`w-full h-[52px] ${!isValid ? 'bg-[#fff0f2] text-[#e6007e] border border-[#fde7f3]' : 'bg-[#e6007e] text-white shadow-lg shadow-[#e6007e]/20'} text-[15px] font-semibold rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2`}
               >
                 Confirm Location
                 <span className="material-symbols-outlined text-[20px]">arrow_forward</span>

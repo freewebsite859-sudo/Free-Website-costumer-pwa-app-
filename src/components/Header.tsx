@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Screen } from '../types';
 import { LOGO_URL, AVATAR_URL } from '../data/mockData';
 
@@ -15,6 +16,8 @@ interface HeaderProps {
   onOpenQrScanner?: () => void;
   userAvatar?: string;
   isSyncing?: boolean;
+  onInstall?: () => void;
+  showInstall?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenQrScanner,
   userAvatar,
   isSyncing = false,
+  onInstall,
+  showInstall = false,
 }) => {
   return (
     <header className="fixed top-0 w-full z-50 bg-white/85 backdrop-blur-2xl border-b border-[#e8e8e8]/50 pt-safe">
@@ -67,7 +72,33 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 header-nav-container">
+          {/* Header Install App Button */}
+          <AnimatePresence>
+            {onInstall && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, x: 20 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onInstall}
+                className="h-9 px-3 sm:px-4 rounded-full bg-[#e6007e] text-white flex items-center gap-1.5 font-bold text-[12px] transition-all cursor-pointer shadow-lg shadow-[#e6007e]/40 shrink-0 relative group overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#e6007e] focus:ring-offset-2 z-20"
+                aria-label="Install Nexora App"
+                title="Install Nexora App"
+              >
+                <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 pointer-events-none" />
+                <div className="relative flex items-center gap-2">
+                  <div className="relative">
+                    <span className="material-symbols-outlined text-[20px]">download_for_offline</span>
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full border border-[#e6007e] animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+                  </div>
+                  <span className="hidden sm:inline whitespace-nowrap text-[13px] tracking-tight">Install App</span>
+                </div>
+              </motion.button>
+            )}
+          </AnimatePresence>
+
           {/* Header Scan UPI QR Code Button */}
           {onOpenQrScanner && (
             <button

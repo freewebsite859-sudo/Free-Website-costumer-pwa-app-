@@ -22,7 +22,10 @@ export const ServiceItemSkeleton: React.FC = () => (
   <div className="flex gap-4 p-4 border-b border-[#f0f0f0]">
     <Skeleton className="w-16 h-16 rounded-xl" />
     <div className="flex-1 flex flex-col justify-center gap-2">
-      <Skeleton className="h-4 w-3/4" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-12 rounded-full" />
+      </div>
       <Skeleton className="h-3 w-1/2" />
       <Skeleton className="h-4 w-1/4 mt-1" />
     </div>
