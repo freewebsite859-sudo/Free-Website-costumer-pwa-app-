@@ -41,14 +41,14 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
     }
   };
 
-  const prevScreenshot = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const prevScreenshot = (e?: React.MouseEvent | React.SyntheticEvent) => {
+    if (e && 'stopPropagation' in e) e.stopPropagation();
     setIsAutoPlaying(false);
     setActiveScreenshot(prev => (prev - 1 + screenshots.length) % screenshots.length);
   };
 
-  const nextScreenshot = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const nextScreenshot = (e?: React.MouseEvent | React.SyntheticEvent) => {
+    if (e && 'stopPropagation' in e) e.stopPropagation();
     setIsAutoPlaying(false);
     setActiveScreenshot(prev => (prev + 1) % screenshots.length);
   };
@@ -254,18 +254,30 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
               {/* Screenshot Carousel */}
               <div className="w-full mb-6 flex flex-col gap-2.5">
                 <div 
-                  onClick={() => setIsZoomed(true)}
-                  className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[var(--color-surface-container-low)] border border-[var(--color-outline-variant)] shadow-inner group cursor-pointer"
-                  title="Click to view full screen"
+                  className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[var(--color-surface-container-low)] border border-[var(--color-outline-variant)] shadow-inner group select-none touch-pan-y"
+                  title="Swipe left or right, or click to view full screen"
                 >
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeScreenshot}
+                      drag="x"
+                      dragConstraints={{ left: 0, right: 0 }}
+                      dragElastic={0.2}
+                      onDragEnd={(_e, { offset, velocity }) => {
+                        const swipeThreshold = 30;
+                        const velocityThreshold = 150;
+                        if (offset.x < -swipeThreshold || velocity.x < -velocityThreshold) {
+                          nextScreenshot();
+                        } else if (offset.x > swipeThreshold || velocity.x > velocityThreshold) {
+                          prevScreenshot();
+                        }
+                      }}
+                      onTap={() => setIsZoomed(true)}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.5, ease: "easeInOut" }}
-                      className="absolute inset-0 overflow-hidden"
+                      transition={{ duration: 0.35, ease: "easeInOut" }}
+                      className="absolute inset-0 overflow-hidden cursor-grab active:cursor-grabbing"
                     >
                       {/* Ken Burns subtle pan & slow-zoom image effect */}
                       <motion.img 
@@ -282,7 +294,7 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
                           duration: 5.5,
                           ease: "easeOut"
                         }}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover pointer-events-none"
                         referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-end p-4 pointer-events-none">
@@ -355,11 +367,28 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
                       onClick={(e) => e.stopPropagation()}
                       className="relative max-w-2xl w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl flex flex-col cursor-default"
                     >
-                      <div className="relative aspect-[16/10] w-full bg-black flex items-center justify-center">
-                        <img
+                      <div className="relative aspect-[16/10] w-full bg-black flex items-center justify-center overflow-hidden touch-pan-y select-none">
+                        <motion.img
+                          key={`zoom-${activeScreenshot}`}
+                          drag="x"
+                          dragConstraints={{ left: 0, right: 0 }}
+                          dragElastic={0.2}
+                          onDragEnd={(_e, { offset, velocity }) => {
+                            const swipeThreshold = 30;
+                            const velocityThreshold = 150;
+                            if (offset.x < -swipeThreshold || velocity.x < -velocityThreshold) {
+                              nextScreenshot();
+                            } else if (offset.x > swipeThreshold || velocity.x > velocityThreshold) {
+                              prevScreenshot();
+                            }
+                          }}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.25 }}
                           src={screenshots[activeScreenshot].url}
                           alt={screenshots[activeScreenshot].label}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-contain cursor-grab active:cursor-grabbing pointer-events-auto"
                           referrerPolicy="no-referrer"
                         />
 
