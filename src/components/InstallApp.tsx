@@ -24,6 +24,7 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
   const [installProgress, setInstallProgress] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [isZoomed, setIsZoomed] = useState(false);
   const [activeScreenshot, setActiveScreenshot] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [dontShowAgain, setDontShowAgain] = useState(() => {
@@ -144,7 +145,7 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
         stiffness: 200,
         duration: 0.5
       }}
-      className="bg-[var(--color-surface-container-lowest)] rounded-[28px] overflow-hidden border border-[var(--color-outline-subtle)] shadow-2xl flex flex-col max-w-sm w-full relative"
+      className="bg-[var(--color-surface-container-lowest)] rounded-[28px] overflow-hidden border border-[var(--color-outline-subtle)] shadow-2xl flex flex-col max-w-sm w-[calc(100vw-32px)] relative"
     >
       {/* Top Indicators Bar */}
       <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none flex items-center justify-between px-4">
@@ -252,29 +253,50 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
 
               {/* Screenshot Carousel */}
               <div className="w-full mb-6 flex flex-col gap-2.5">
-                <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[var(--color-surface-container-low)] border border-[var(--color-outline-variant)] shadow-inner group">
+                <div 
+                  onClick={() => setIsZoomed(true)}
+                  className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[var(--color-surface-container-low)] border border-[var(--color-outline-variant)] shadow-inner group cursor-pointer"
+                  title="Click to view full screen"
+                >
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeScreenshot}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                       transition={{ duration: 0.5, ease: "easeInOut" }}
-                      className="absolute inset-0"
+                      className="absolute inset-0 overflow-hidden"
                     >
-                      <img 
+                      {/* Ken Burns subtle pan & slow-zoom image effect */}
+                      <motion.img 
+                        key={`img-${activeScreenshot}`}
                         src={screenshots[activeScreenshot].url} 
                         alt={screenshots[activeScreenshot].label}
+                        initial={{ scale: 1, x: 0, y: 0 }}
+                        animate={{ 
+                          scale: [1, 1.08],
+                          x: [0, activeScreenshot % 2 === 0 ? -6 : 6],
+                          y: [0, activeScreenshot % 3 === 0 ? -4 : 4]
+                        }}
+                        transition={{
+                          duration: 5.5,
+                          ease: "easeOut"
+                        }}
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-end p-4">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-end p-4 pointer-events-none">
                         <span className="text-white text-[12px] font-bold text-left drop-shadow-md">
                           {screenshots[activeScreenshot].label}
                         </span>
                       </div>
                     </motion.div>
                   </AnimatePresence>
+
+                  {/* Zoom Indicator Badge */}
+                  <div className="absolute top-2.5 right-2.5 bg-black/40 backdrop-blur-md text-white rounded-full p-1.5 opacity-80 group-hover:opacity-100 transition-opacity z-10 pointer-events-none flex items-center justify-center border border-white/20">
+                    <span className="material-symbols-outlined text-[15px]">zoom_in</span>
+                  </div>
 
                   {/* Manual Navigation Arrows */}
                   <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
@@ -302,6 +324,76 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
                   ))}
                 </div>
               </div>
+
+              {/* Fullscreen Zoom Modal Overlay */}
+              <AnimatePresence>
+                {isZoomed && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsZoomed(false)}
+                    className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 cursor-zoom-out"
+                  >
+                    <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsZoomed(false);
+                        }}
+                        className="w-10 h-10 rounded-full bg-white/20 text-white hover:bg-white/30 flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[24px]">close</span>
+                      </button>
+                    </div>
+
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="relative max-w-2xl w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl flex flex-col cursor-default"
+                    >
+                      <div className="relative aspect-[16/10] w-full bg-black flex items-center justify-center">
+                        <img
+                          src={screenshots[activeScreenshot].url}
+                          alt={screenshots[activeScreenshot].label}
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            prevScreenshot(e);
+                          }}
+                          className="absolute left-3 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[24px]">chevron_left</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            nextScreenshot(e);
+                          }}
+                          className="absolute right-3 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[24px]">chevron_right</span>
+                        </button>
+                      </div>
+
+                      <div className="p-4 bg-[#180f12] text-white flex items-center justify-between border-t border-white/10">
+                        <span className="text-sm font-extrabold">{screenshots[activeScreenshot].label}</span>
+                        <span className="text-xs text-white/60 font-semibold">{activeScreenshot + 1} / {screenshots.length}</span>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Offline Value Proposition Card */}
               <div className="w-full bg-[var(--color-surface-container-low)] rounded-2xl p-3.5 border border-[var(--color-outline-variant)] mb-3 flex items-start gap-3 text-left">
@@ -459,14 +551,28 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
                 <button
                   onClick={handleInstallClick}
                   disabled={isInstalling}
-                  className="h-12 rounded-xl bg-[var(--color-primary-pink)] text-white font-bold text-xs shadow-md hover:bg-[var(--color-primary)] active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="relative overflow-hidden h-12 rounded-xl bg-[var(--color-primary-pink)] text-white font-bold text-xs shadow-md hover:bg-[var(--color-primary)] active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group"
                 >
-                  {isInstalling ? (
-                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <span className="material-symbols-outlined text-[18px]">download</span>
+                  {!isInstalling && (
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none"
+                      animate={{ x: ['-100%', '200%'] }}
+                      transition={{
+                        repeat: Infinity,
+                        repeatDelay: 2.2,
+                        duration: 1.4,
+                        ease: 'easeInOut',
+                      }}
+                    />
                   )}
-                  {isInstalling ? 'Installing...' : 'Install Now'}
+                  {isInstalling ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin relative z-10" />
+                  ) : (
+                    <span className="material-symbols-outlined text-[18px] relative z-10">download</span>
+                  )}
+                  <span className="relative z-10">
+                    {isInstalling ? 'Installing...' : 'Install Now'}
+                  </span>
                 </button>
               </div>
 

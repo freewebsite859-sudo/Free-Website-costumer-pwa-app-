@@ -85,39 +85,39 @@ export const NexoraLeaderboardSection: React.FC<NexoraLeaderboardSectionProps> =
         </div>
 
         {/* Weekly vs Monthly Toggle Bar */}
-        <div className="flex items-center justify-between gap-2 bg-[#f9f0f4] p-1.5 rounded-2xl border border-[#f0d8e2]">
-          <div className="flex flex-1 gap-1">
+        <div className="flex items-center justify-between gap-1.5 bg-[#f9f0f4] p-1 sm:p-1.5 rounded-2xl border border-[#f0d8e2] w-full max-w-full overflow-hidden">
+          <div className="flex flex-1 gap-1 min-w-0 w-full">
             <button
               type="button"
               onClick={() => setTimeframe('weekly')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer select-none flex items-center justify-center gap-1.5 active:scale-95 ${
+              className={`flex-1 min-w-0 py-1.5 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer select-none flex items-center justify-center gap-1 active:scale-95 ${
                 timeframe === 'weekly'
                   ? 'bg-[#e6007e] text-white shadow-xs border border-[#c4006b]'
                   : 'bg-transparent text-[#594047] hover:bg-white hover:text-[#26181c]'
               }`}
             >
-              <span>📅</span>
-              <span className={timeframe === 'weekly' ? 'text-white font-extrabold' : 'text-[#594047] font-bold'}>
+              <span className="text-[12px] shrink-0">📅</span>
+              <span className={`truncate ${timeframe === 'weekly' ? 'text-white font-extrabold' : 'text-[#594047] font-bold'}`}>
                 Weekly Rank
               </span>
             </button>
             <button
               type="button"
               onClick={() => setTimeframe('monthly')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer select-none flex items-center justify-center gap-1.5 active:scale-95 ${
+              className={`flex-1 min-w-0 py-1.5 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer select-none flex items-center justify-center gap-1 active:scale-95 ${
                 timeframe === 'monthly'
                   ? 'bg-[#e6007e] text-white shadow-xs border border-[#c4006b]'
                   : 'bg-transparent text-[#594047] hover:bg-white hover:text-[#26181c]'
               }`}
             >
-              <span>📆</span>
-              <span className={timeframe === 'monthly' ? 'text-white font-extrabold' : 'text-[#594047] font-bold'}>
+              <span className="text-[12px] shrink-0">📆</span>
+              <span className={`truncate ${timeframe === 'monthly' ? 'text-white font-extrabold' : 'text-[#594047] font-bold'}`}>
                 Monthly Rank
               </span>
             </button>
           </div>
 
-          <span className="text-[10px] text-[#8e004b] font-extrabold px-2.5 py-1.5 rounded-xl bg-white border border-[#fcd5e8] shrink-0 hidden sm:inline-block shadow-2xs">
+          <span className="text-[10px] text-[#8e004b] font-extrabold px-2 py-1 rounded-xl bg-white border border-[#fcd5e8] shrink-0 hidden sm:inline-block shadow-2xs whitespace-nowrap">
             {timeframe === 'weekly' ? 'Weekly Updates' : 'Monthly Updates'}
           </span>
         </div>
