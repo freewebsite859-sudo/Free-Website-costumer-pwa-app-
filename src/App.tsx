@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabaseClient';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
@@ -769,9 +770,10 @@ export default function App() {
               : ''
           }`}
         >
-          {currentScreen === 'welcome' && (
-            <WelcomeScreen onContinue={() => setCurrentScreen('home')} />
-          )}
+          <div key={currentScreen} className="w-full h-full flex flex-col animate-fadeIn">
+            {currentScreen === 'welcome' && (
+              <WelcomeScreen onContinue={() => setCurrentScreen('home')} />
+            )}
 
           {currentScreen === 'home' && (
             <HomeScreen
@@ -907,21 +909,22 @@ export default function App() {
           )}
 
           {/* Safe Fallback for any unhandled screen state to prevent white screen */}
-          {!['welcome', 'home', 'search', 'salon-detail', 'checkout', 'bookings', 'favourites', 'rewards', 'profile', 'saved-addresses', 'support', 'settings', 'location-modal'].includes(currentScreen) && (
-            <HomeScreen
-              location={userLocation}
-              salons={salons}
-              favorites={favorites}
-              recentlyViewed={recentlyViewed}
-              bookings={bookings}
-              onToggleFavorite={handleToggleFavorite}
-              onSelectSalon={handleSelectSalon}
-              onNavigate={(s) => setCurrentScreen(s)}
-              onOpenLocationSelector={() => setCurrentScreen('location-modal')}
-              isAppointmentDismissed={isAppointmentDismissed}
-              onDismissAppointment={() => setIsAppointmentDismissed(true)}
-            />
-          )}
+              {!['welcome', 'home', 'search', 'salon-detail', 'checkout', 'bookings', 'favourites', 'rewards', 'profile', 'saved-addresses', 'support', 'settings', 'location-modal'].includes(currentScreen) && (
+                <HomeScreen
+                  location={userLocation}
+                  salons={salons}
+                  favorites={favorites}
+                  recentlyViewed={recentlyViewed}
+                  bookings={bookings}
+                  onToggleFavorite={handleToggleFavorite}
+                  onSelectSalon={handleSelectSalon}
+                  onNavigate={(s) => setCurrentScreen(s)}
+                  onOpenLocationSelector={() => setCurrentScreen('location-modal')}
+                  isAppointmentDismissed={isAppointmentDismissed}
+                  onDismissAppointment={() => setIsAppointmentDismissed(true)}
+                />
+              )}
+          </div>
         </main>
 
         {/* Floating Bottom Navigation */}

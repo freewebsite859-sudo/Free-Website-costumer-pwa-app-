@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Screen } from '../types';
 
 interface BottomNavProps {
@@ -41,33 +42,42 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {items.map((item) => {
           const isActive = currentScreen === item.id;
           return (
-            <a
+            <motion.a
               key={item.id}
               href="#"
               data-path={item.path}
+              whileTap={{ scale: 0.92 }}
               onClick={(e) => {
                 e.preventDefault();
                 onNavigate(item.id);
               }}
-              className={`flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 transition-all active:scale-95 relative ${
+              className={`flex flex-col items-center justify-center gap-1 min-w-[56px] py-1 transition-colors relative select-none ${
                 isActive ? 'text-[#e6007e] font-semibold' : 'text-[#5a3f47] hover:text-[#e6007e]'
               }`}
             >
-              <div className="relative">
-                <span className={`material-symbols-outlined text-[24px] transition-transform ${isActive ? 'scale-110' : ''}`}>
+              <div className="relative flex items-center justify-center">
+                <motion.span
+                  animate={{ scale: isActive ? 1.15 : 1, y: isActive ? -1 : 0 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  className="material-symbols-outlined text-[24px]"
+                >
                   {item.icon}
-                </span>
+                </motion.span>
                 {item.badge && item.badge > 0 ? (
-                  <span className="absolute -top-1 -right-2 bg-[#e6007e] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-[16px] text-center shadow-sm">
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-2 bg-[#e6007e] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-[16px] text-center shadow-sm"
+                  >
                     {item.badge}
-                  </span>
+                  </motion.span>
                 ) : null}
               </div>
               <span className="text-[11px] tracking-tight">{item.label}</span>
               {isActive && (
-                <div className="w-1 h-1 rounded-full bg-[#e6007e] absolute bottom-0.5" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#e6007e] absolute -bottom-0.5 animate-pulse" />
               )}
-            </a>
+            </motion.a>
           );
         })}
       </div>

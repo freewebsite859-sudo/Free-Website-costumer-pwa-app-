@@ -52,7 +52,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [smartFilter, setSmartFilter] = useState<'all' | 'top-rated-city' | 'top-nexora'>('all');
   const [recommendationFilter, setRecommendationFilter] = useState<'all' | 'near' | 'category' | 'top'>('all');
   const [topTab, setTopTab] = useState<'frequent' | 'trending'>('frequent');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [filterRadius, setFilterRadius] = useState<number>(30); // Default to max
@@ -67,11 +67,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
   }, []);
   // Scroll container ref for smooth horizontal carousel scrolling
   const carouselRef = React.useRef<HTMLDivElement>(null);

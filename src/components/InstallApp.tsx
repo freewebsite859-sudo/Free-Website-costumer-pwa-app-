@@ -609,7 +609,7 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
               {!isInstalling && (
                 <button 
                   onClick={handleToggleDontShow}
-                  className="mt-4 flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[var(--color-surface-container)] transition-colors cursor-pointer group"
+                  className="mt-3 flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[var(--color-surface-container)] transition-colors cursor-pointer group"
                 >
                   <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${dontShowAgain ? 'bg-[var(--color-primary-pink)] border-[var(--color-primary-pink)]' : 'border-[var(--color-outline)] group-hover:border-[var(--color-primary-pink)]'}`}>
                     {dontShowAgain && <span className="material-symbols-outlined text-white text-[12px] font-bold">check</span>}
@@ -617,6 +617,12 @@ export const InstallApp: React.FC<InstallAppProps> = ({ onClose, onInstall, init
                   <span className="text-[11px] font-bold text-[var(--color-on-surface-variant)] uppercase tracking-wider">Don't show again</span>
                 </button>
               )}
+
+              {/* Social Proof Footer */}
+              <div className="mt-4 pt-3 border-t border-[var(--color-outline-variant)]/50 w-full flex items-center justify-center gap-1.5 text-[11px] text-[var(--color-on-surface-variant)] font-medium">
+                <span className="material-symbols-outlined text-[15px] text-[#e6007e]">groups</span>
+                <span>Join <strong className="font-extrabold text-[var(--color-on-surface)]">10k+ users</strong> who installed Nexora</span>
+              </div>
 
               {/* Progress Bar */}
               <AnimatePresence>
