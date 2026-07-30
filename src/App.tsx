@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './lib/supabaseClient';
+import { supabase, supabaseConfigError } from './lib/supabaseClient';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
   MOCK_SALONS,
@@ -35,22 +35,25 @@ import { InstallApp } from './components/InstallApp';
 import { Modal } from './components/Modal';
 
 export default function App() {
-  const [user, setUser] = useState<any>(() => {
-    return { id: 'guest-user', email: 'guest@nexora.app' };
-  });
-  const [authLoading, setAuthLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'role-conflict'>('login');
 
   useEffect(() => {
     let isMounted = true;
 
+    if (!supabase) {
+      setAuthLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     try {
       supabase.auth.getSession()
-        .then(({ data }) => {
+        .then(({ data, error }) => {
           if (isMounted) {
-            if (data?.session?.user) {
-              setUser(data.session.user);
-            }
+            setUser(error ? null : data?.session?.user ?? null);
             setAuthLoading(false);
           }
         })
@@ -63,9 +66,8 @@ export default function App() {
 
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         if (isMounted) {
-          if (session?.user) {
-            setUser(session.user);
-          }
+          setUser(session?.user ?? null);
+          setAuthLoading(false);
         }
       });
 
@@ -661,6 +663,18 @@ export default function App() {
     currentScreen === 'settings';
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  if (supabaseConfigError) {
+    return (
+      <div className="min-h-screen bg-[#fff8f8] text-[#26181c] flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+          <span className="material-symbols-outlined mb-3 text-4xl text-rose-600">settings_alert</span>
+          <h1 className="mb-2 text-xl font-bold">Configuration required</h1>
+          <p className="text-sm leading-6 text-[#5a3f47]">{supabaseConfigError}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#fff8f8] text-[#26181c] flex flex-col items-center justify-center p-6 text-center">
@@ -675,7 +689,6 @@ export default function App() {
       return (
         <LoginScreen 
           onToggleAuth={() => setAuthScreen('signup')} 
-          onGuestLogin={() => setUser({ id: 'guest-user', email: 'guest@nexora.app' })} 
         />
       );
     }
@@ -888,9 +901,9 @@ export default function App() {
             <SettingsScreen
               onBack={handleBack}
               onNavigate={(s) => setCurrentScreen(s)}
-              onLogout={() => {
-                supabase.auth.signOut();
-                setCurrentScreen('welcome');
+              onLogout={async () => {
+                setUser(null);
+                await supabase?.auth.signOut();
               }}
             />
           )}
