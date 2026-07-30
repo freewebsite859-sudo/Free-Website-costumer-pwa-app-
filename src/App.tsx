@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, supabaseConfigError } from './lib/supabaseClient';
+import { verifyCustomerRole } from './lib/customerRole';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
   MOCK_SALONS,
@@ -37,10 +38,18 @@ import { Modal } from './components/Modal';
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [roleVerification, setRoleVerification] = useState<
+    'idle' | 'loading' | 'authorized' | 'blocked'
+  >('idle');
+  const [blockedRole, setBlockedRole] = useState({
+    label: 'Invalid Account Role',
+    message: 'This account cannot access the Customer app.',
+  });
   const [authScreen, setAuthScreen] = useState<'login' | 'signup' | 'role-conflict'>('login');
 
   useEffect(() => {
     let isMounted = true;
+    let verificationId = 0;
 
     if (!supabase) {
       setAuthLoading(false);
@@ -49,26 +58,55 @@ export default function App() {
       };
     }
 
+    const applySession = async (sessionUser: any | null) => {
+      const currentVerificationId = ++verificationId;
+
+      if (!sessionUser) {
+        if (isMounted) {
+          setUser(null);
+          setRoleVerification('idle');
+          setAuthLoading(false);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setUser(null);
+        setRoleVerification('loading');
+        setAuthLoading(false);
+      }
+
+      const decision = await verifyCustomerRole(sessionUser.id);
+      if (!isMounted || currentVerificationId !== verificationId) return;
+
+      if (decision.allowed) {
+        setUser(sessionUser);
+        setRoleVerification('authorized');
+        return;
+      }
+
+      setUser(null);
+      setBlockedRole({
+        label: decision.label,
+        message: decision.message,
+      });
+      setRoleVerification('blocked');
+      setAuthScreen('role-conflict');
+    };
+
     try {
       supabase.auth.getSession()
         .then(({ data, error }) => {
-          if (isMounted) {
-            setUser(error ? null : data?.session?.user ?? null);
-            setAuthLoading(false);
-          }
+          if (!isMounted) return;
+          void applySession(error ? null : data?.session?.user ?? null);
         })
         .catch((err) => {
           console.warn('Supabase auth notice:', err?.message || err);
-          if (isMounted) {
-            setAuthLoading(false);
-          }
+          if (isMounted) void applySession(null);
         });
 
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (isMounted) {
-          setUser(session?.user ?? null);
-          setAuthLoading(false);
-        }
+        if (isMounted) void applySession(session?.user ?? null);
       });
 
       return () => {
@@ -78,6 +116,8 @@ export default function App() {
     } catch (e) {
       console.warn('Supabase init notice:', e);
       if (isMounted) {
+        setUser(null);
+        setRoleVerification('idle');
         setAuthLoading(false);
       }
     }
@@ -675,12 +715,43 @@ export default function App() {
     );
   }
 
-  if (authLoading) {
+  if (authLoading || roleVerification === 'loading') {
     return (
       <div className="min-h-screen bg-[#fff8f8] text-[#26181c] flex flex-col items-center justify-center p-6 text-center">
         <div className="w-12 h-12 border-4 border-[#e6007e]/20 border-t-[#e6007e] rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold text-[#8e004b]">Loading Nexora Salon...</p>
+        <p className="text-sm font-bold text-[#8e004b]">
+          {roleVerification === 'loading'
+            ? 'Verifying Customer access...'
+            : 'Loading Nexora Salon...'}
+        </p>
       </div>
+    );
+  }
+
+  if (roleVerification === 'blocked') {
+    return (
+      <RoleAssignedConflict
+        existingRole={blockedRole.label}
+        message={blockedRole.message}
+        onLogin={async () => {
+          setUser(null);
+          setRoleVerification('idle');
+          setAuthScreen('login');
+          await supabase?.auth.signOut();
+        }}
+        onUseAnotherEmail={async () => {
+          setUser(null);
+          setRoleVerification('idle');
+          setAuthScreen('signup');
+          await supabase?.auth.signOut();
+        }}
+        onContactSupport={async () => {
+          setUser(null);
+          setRoleVerification('idle');
+          setAuthScreen('login');
+          await supabase?.auth.signOut();
+        }}
+      />
     );
   }
 
@@ -693,7 +764,16 @@ export default function App() {
       );
     }
     if (authScreen === 'signup') {
-      return <SignUpScreen onToggleAuth={() => setAuthScreen('login')} onConflict={() => setAuthScreen('role-conflict')} />;
+      return (
+        <SignUpScreen
+          onToggleAuth={() => setAuthScreen('login')}
+          onConflict={(label, message) => {
+            setBlockedRole({ label, message });
+            setRoleVerification('blocked');
+            setAuthScreen('role-conflict');
+          }}
+        />
+      );
     }
     return (
       <RoleAssignedConflict 
@@ -903,6 +983,11 @@ export default function App() {
               onNavigate={(s) => setCurrentScreen(s)}
               onLogout={async () => {
                 setUser(null);
+                setRoleVerification('idle');
+                setBlockedRole({
+                  label: 'Invalid Account Role',
+                  message: 'This account cannot access the Customer app.',
+                });
                 await supabase?.auth.signOut();
               }}
             />

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 
 interface RoleAssignedConflictProps {
   existingRole?: string;
+  message?: string;
   onLogin: () => void;
   onUseAnotherEmail: () => void;
   onContactSupport: () => void;
@@ -10,6 +11,7 @@ interface RoleAssignedConflictProps {
 
 export const RoleAssignedConflict: React.FC<RoleAssignedConflictProps> = ({
   existingRole = 'Existing Role',
+  message,
   onLogin,
   onUseAnotherEmail,
   onContactSupport,
@@ -52,6 +54,11 @@ export const RoleAssignedConflict: React.FC<RoleAssignedConflictProps> = ({
           <h1 className="text-xl font-bold text-[#26181c]">
             Role Already Assigned
           </h1>
+          {message && (
+            <p className="text-sm font-medium leading-relaxed text-[#5a3f47]">
+              {message}
+            </p>
+          )}
           <p className="text-sm text-[#5a3f47] leading-relaxed">
             यह email पहले से <span className="text-[#e6007e] font-semibold">[{existingRole}]</span> account से जुड़ी है।
           </p>

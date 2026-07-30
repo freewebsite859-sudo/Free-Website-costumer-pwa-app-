@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { CUSTOMER_ROLE } from '../../lib/customerRole';
 import { Eye, EyeOff } from 'lucide-react';
 import { WELCOME_BG_URL, LOGO_SQUARE } from '../../data/mockData';
 
-export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () => void}> = ({onToggleAuth, onConflict}) => {
+export const SignUpScreen: React.FC<{
+  onToggleAuth: () => void;
+  onConflict?: (label: string, message: string) => void;
+}> = ({onToggleAuth, onConflict}) => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -29,12 +33,6 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    if (formData.email === 'conflict@nexora.com' && onConflict) {
-      onConflict();
-      setIsLoading(false);
-      return;
-    }
     
     if (!formData.fullName || !formData.email || !formData.mobile) {
       alert('Please fill in all fields.');
@@ -72,24 +70,32 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () =
           data: {
             full_name: formData.fullName,
             mobile: formData.mobile,
+            role: CUSTOMER_ROLE,
           },
         },
       });
 
       if (error) {
-        alert('Sign up note: ' + (error.message || 'Please try again or continue as guest.'));
+        const normalizedMessage = error.message?.toLowerCase() ?? '';
+        if (
+          onConflict &&
+          (normalizedMessage.includes('already registered') ||
+            normalizedMessage.includes('already exists'))
+        ) {
+          onConflict(
+            'Existing Account',
+            'This email already has a permanent Nexora account. Sign in to verify its assigned role.',
+          );
+        } else {
+          alert('Sign up failed: ' + (error.message || 'Please try again.'));
+        }
       } else {
-        if (data.user) {
-          try {
-            await supabase.from('profiles').insert({
-              id: data.user.id,
-              full_name: formData.fullName,
-              email: formData.email,
-              mobile: formData.mobile
-            });
-          } catch (pe) {
-            // ignore profile insert fail
-          }
+        if (data.user && data.user.identities?.length === 0 && onConflict) {
+          onConflict(
+            'Existing Account',
+            'This email already has a permanent Nexora account. Sign in to verify its assigned role.',
+          );
+          return;
         }
         alert('Registration submitted! Check your email for confirmation link.');
       }
@@ -162,9 +168,6 @@ export const SignUpScreen: React.FC<{onToggleAuth: () => void, onConflict?: () =
             {isLoading ? 'Creating Account...' : 'Sign Up'}
           </button>
           
-          <p className="text-[10px] text-center text-[#8c7077] mt-2 italic">
-            Try "conflict@nexora.com" to see role conflict screen
-          </p>
         </form>
 
         <div className="mt-8 text-center pb-8 pb-safe">
