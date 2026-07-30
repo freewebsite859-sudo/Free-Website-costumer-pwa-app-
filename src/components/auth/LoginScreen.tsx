@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { Eye, EyeOff } from 'lucide-react';
 import { WELCOME_BG_URL, LOGO_SQUARE } from '../../data/mockData';
 
-export const LoginScreen: React.FC<{onToggleAuth: () => void; onGuestLogin?: () => void}> = ({onToggleAuth, onGuestLogin}) => {
+export const LoginScreen: React.FC<{onToggleAuth: () => void}> = ({onToggleAuth}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +16,10 @@ export const LoginScreen: React.FC<{onToggleAuth: () => void; onGuestLogin?: () 
     setErrorMsg(null);
     setIsLoading(true);
     try {
+      if (!supabase) {
+        setErrorMsg('Authentication is unavailable because the app is not configured.');
+        return;
+      }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         if (error.message?.toLowerCase().includes('rate') || error.status === 429) {
@@ -33,20 +37,28 @@ export const LoginScreen: React.FC<{onToggleAuth: () => void; onGuestLogin?: () 
 
   const handleGoogleLogin = async () => {
     try {
+      if (!supabase) {
+        setErrorMsg('Authentication is unavailable because the app is not configured.');
+        return;
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
       });
       if (error) {
-        if (onGuestLogin) onGuestLogin();
+        setErrorMsg('Google login could not be started. Please try again.');
       }
     } catch (err) {
-      if (onGuestLogin) onGuestLogin();
+      setErrorMsg('Google login could not be started. Please try again.');
     }
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
       alert('Please enter your email address first.');
+      return;
+    }
+    if (!supabase) {
+      alert('Authentication is unavailable because the app is not configured.');
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -184,16 +196,6 @@ export const LoginScreen: React.FC<{onToggleAuth: () => void; onGuestLogin?: () 
               Continue with Google
             </button>
 
-            {onGuestLogin && (
-              <button
-                onClick={onGuestLogin}
-                className="w-full bg-white text-[#26181c] rounded-xl py-3.5 font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 active:scale-[0.98] border border-[#e8e8e8] shadow-2xs"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[18px] text-[#e6007e]">explore</span>
-                Explore as Guest
-              </button>
-            )}
           </div>
         </form>
 
