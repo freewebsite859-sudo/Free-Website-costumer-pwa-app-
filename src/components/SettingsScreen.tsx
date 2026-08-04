@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { InstallApp } from './InstallApp';
+import { supabase } from '../lib/supabaseClient';
+import {
+  CustomerSettings,
+  SETTINGS_DEFAULTS,
+  loadSettings,
+  saveSettings,
+  subscribeToSettings,
+  settingsFromLegacyLocalStorage,
+} from '../lib/settingsRepository';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -12,42 +21,114 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onNavigate,
   onLogout,
 }) => {
-  // Notification states with localStorage syncing
-  const [bookingUpdates, setBookingUpdates] = useState(() => {
-    return localStorage.getItem('settings_booking_updates') !== 'false';
-  });
-  const [appointmentReminders, setAppointmentReminders] = useState(() => {
-    return localStorage.getItem('settings_appt_reminders') !== 'false';
-  });
-  const [rewardsUpdates, setRewardsUpdates] = useState(() => {
-    return localStorage.getItem('settings_rewards_updates') !== 'false';
-  });
-  const [offersPromo, setOffersPromo] = useState(() => {
-    return localStorage.getItem('settings_offers_promo') !== 'false';
-  });
-  const [emailNotifs, setEmailNotifs] = useState(() => {
-    return localStorage.getItem('settings_email_notifs') !== 'false';
-  });
-  const [pushNotifs, setPushNotifs] = useState(() => {
-    return localStorage.getItem('settings_push_notifs') !== 'false';
-  });
+  // Settings live in Supabase customer_settings (one row per customer).
+  const [settings, setSettings] = useState<CustomerSettings>(SETTINGS_DEFAULTS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestSettings = useRef<CustomerSettings>(SETTINGS_DEFAULTS);
 
-  // Location states
-  const [preferredLoc, setPreferredLoc] = useState(() => {
-    return localStorage.getItem('user_location_name') || 'San Francisco, CA';
-  });
-  const [useLocAuto, setUseLocAuto] = useState(() => {
-    return localStorage.getItem('settings_use_loc_auto') !== 'false';
-  });
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
-  // Language state
-  const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('settings_language') || 'english';
-  });
+    const init = async () => {
+      if (!supabase) {
+        setSettingsLoaded(true);
+        return;
+      }
+      try {
+        const { data } = await supabase.auth.getUser();
+        const userId = data.user?.id;
+        if (!userId) {
+          setSettingsLoaded(true);
+          return;
+        }
+        const { settings: serverSettings, exists } = await loadSettings(supabase, userId);
+        if (cancelled) return;
 
-  // Display state
-  const [displayMode, setDisplayMode] = useState(() => {
-    return localStorage.getItem('settings_display_mode') || 'device';
+        // One-time import of pre-integration localStorage toggles.
+        let merged = serverSettings;
+        if (!exists) {
+          const legacy = settingsFromLegacyLocalStorage((key) => {
+            try {
+              return localStorage.getItem(key);
+            } catch {
+              return null;
+            }
+          });
+          if (Object.keys(legacy).length > 0) {
+            merged = { ...serverSettings, ...legacy };
+            try {
+              await saveSettings(supabase, userId, merged);
+            } catch (err) {
+              console.warn('Settings could not be imported to Supabase:', err);
+            }
+          }
+        }
+
+        setSettings(merged);
+        latestSettings.current = merged;
+        setSettingsLoaded(true);
+
+        // Multi-device sync.
+        unsubscribe = subscribeToSettings(supabase, userId, (next) => {
+          setSettings(next);
+          latestSettings.current = next;
+        });
+      } catch (err) {
+        console.warn('Settings could not be loaded from Supabase:', err);
+        if (!cancelled) setSettingsLoaded(true);
+      }
+    };
+
+    void init();
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
+  /** Optimistic UI update + debounced persist to Supabase. */
+  const applySettings = (patch: Partial<CustomerSettings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      latestSettings.current = next;
+      if (supabase) {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+          void (async () => {
+            try {
+              const { data } = await supabase!.auth.getUser();
+              const userId = data.user?.id;
+              if (userId) await saveSettings(supabase!, userId, latestSettings.current);
+            } catch (err) {
+              console.warn('Settings could not be saved to Supabase:', err);
+            }
+          })();
+        }, 600);
+      }
+      return next;
+    });
+  };
+
+  const bookingUpdates = settings.booking_updates;
+  const appointmentReminders = settings.appointment_reminders;
+  const rewardsUpdates = settings.rewards_updates;
+  const offersPromo = settings.offers_promotions;
+  const emailNotifs = settings.email_notifications;
+  const pushNotifs = settings.push_notifications;
+  const useLocAuto = settings.auto_location;
+  const language = settings.language;
+  const displayMode = settings.display_mode;
+
+  // Location label stays device-local (display only).
+  const [preferredLoc] = useState(() => {
+    try {
+      return localStorage.getItem('user_location_name') || 'Not set';
+    } catch {
+      return 'Not set';
+    }
   });
 
   // Loading / Interaction states
@@ -61,22 +142,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Sync state changes to localStorage and trigger feedback
-  const handleToggle = (key: string, val: boolean, setter: (v: boolean) => void, label: string) => {
-    setter(val);
-    localStorage.setItem(key, String(val));
+  // Sync state changes to Supabase and trigger feedback
+  const handleToggle = (patch: Partial<CustomerSettings>, val: boolean, label: string) => {
+    applySettings(patch);
     triggerToast(`${label} is now ${val ? 'enabled' : 'disabled'}`);
   };
 
   const handleLanguageChange = (lang: string) => {
-    setLanguage(lang);
-    localStorage.setItem('settings_language', lang);
+    applySettings({ language: lang });
     triggerToast(lang === 'english' ? 'Language set to English' : 'भाषा हिन्दी में बदली गई');
   };
 
   const handleDisplayChange = (mode: string) => {
-    setDisplayMode(mode);
-    localStorage.setItem('settings_display_mode', mode);
+    applySettings({ display_mode: mode === 'light' ? 'light' : 'device' });
     triggerToast(mode === 'device' ? 'Theme matched to Device setting' : 'Light Mode theme set as default');
   };
 
@@ -170,7 +248,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <div className="bg-surface-container-lowest rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-[#e8e8e8] overflow-hidden">
             {/* Booking Updates */}
             <div
-              onClick={() => handleToggle('settings_booking_updates', !bookingUpdates, setBookingUpdates, 'Booking Updates')}
+              onClick={() => handleToggle({ booking_updates: !bookingUpdates }, !bookingUpdates, 'Booking Updates')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Booking Updates</span>
@@ -184,7 +262,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Appointment Reminders */}
             <div
-              onClick={() => handleToggle('settings_appt_reminders', !appointmentReminders, setAppointmentReminders, 'Appointment Reminders')}
+              onClick={() => handleToggle({ appointment_reminders: !appointmentReminders }, !appointmentReminders, 'Appointment Reminders')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Appointment Reminders</span>
@@ -198,7 +276,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Rewards Updates */}
             <div
-              onClick={() => handleToggle('settings_rewards_updates', !rewardsUpdates, setRewardsUpdates, 'Rewards Updates')}
+              onClick={() => handleToggle({ rewards_updates: !rewardsUpdates }, !rewardsUpdates, 'Rewards Updates')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Rewards Updates</span>
@@ -212,7 +290,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Offers and Promotions */}
             <div
-              onClick={() => handleToggle('settings_offers_promo', !offersPromo, setOffersPromo, 'Offers and Promotions')}
+              onClick={() => handleToggle({ offers_promotions: !offersPromo }, !offersPromo, 'Offers and Promotions')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Offers and Promotions</span>
@@ -226,7 +304,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Email Notifications */}
             <div
-              onClick={() => handleToggle('settings_email_notifs', !emailNotifs, setEmailNotifs, 'Email Notifications')}
+              onClick={() => handleToggle({ email_notifications: !emailNotifs }, !emailNotifs, 'Email Notifications')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Email Notifications</span>
@@ -240,7 +318,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Push Notifications */}
             <div
-              onClick={() => handleToggle('settings_push_notifs', !pushNotifs, setPushNotifs, 'Push Notifications')}
+              onClick={() => handleToggle({ push_notifications: !pushNotifs }, !pushNotifs, 'Push Notifications')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Push Notifications</span>
@@ -271,7 +349,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <div className="h-px bg-outline-subtle mx-4"></div>
 
             <div
-              onClick={() => handleToggle('settings_use_loc_auto', !useLocAuto, setUseLocAuto, 'Auto Location detection')}
+              onClick={() => handleToggle({ auto_location: !useLocAuto }, !useLocAuto, 'Auto Location detection')}
               className="flex items-center justify-between p-4 bg-surface-container-lowest hover:bg-slate-50/50 transition-colors touch-manipulation cursor-pointer"
             >
               <span className="text-body text-on-surface font-medium">Use Location Automatically</span>

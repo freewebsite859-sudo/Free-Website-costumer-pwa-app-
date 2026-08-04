@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Booking } from '../types';
-import { MOCK_SALONS, BANNER_URL } from '../data/mockData';
+import { Booking, Salon } from '../types';
+import { BANNER_URL } from '../data/mockData';
 
 interface BookingDetailsModalProps {
   booking: Booking;
+  /** Live salon catalog — replaces the old MOCK_SALONS lookup. */
+  salons?: Salon[];
   isOpen: boolean;
   onClose: () => void;
   onRebook: (booking: Booking) => void;
@@ -12,6 +14,7 @@ interface BookingDetailsModalProps {
 
 export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   booking,
+  salons,
   isOpen,
   onClose,
   onRebook,
@@ -25,7 +28,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   if (!isOpen) return null;
 
   // Find matching salon data for image & avatar details
-  const salonData = MOCK_SALONS.find((s) => s.id === booking.salonId || s.name.toLowerCase() === booking.salonName.toLowerCase());
+  const salonData = (salons ?? []).find((s) => s.id === booking.salonId || s.name.toLowerCase() === booking.salonName.toLowerCase());
   const salonImage = salonData?.image || BANNER_URL;
   const staffObj = salonData?.staff?.find((st) => st.name === booking.staffName) || salonData?.staff?.[0];
 

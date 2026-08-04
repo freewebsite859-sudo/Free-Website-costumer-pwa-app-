@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, supabaseConfigError } from './lib/supabaseClient';
 import { verifyCustomerRole } from './lib/customerRole';
+import { fetchPublicSalons } from './lib/salonRepository';
+import { saveReview } from './lib/reviewsRepository';
+import { addUpiMethod } from './lib/paymentMethodsRepository';
+import { runLegacyMigrationOnce } from './lib/legacyLocalData';
 import { Screen, Salon, Service, Staff, Booking, UserLocation, AppNotification, ServiceReview, SavedProfessional, SavedService } from './types';
 import {
-  MOCK_SALONS,
-  INITIAL_BOOKINGS,
   INITIAL_LOCATION,
 } from './data/mockData';
 
@@ -30,7 +32,7 @@ import { LoginScreen } from './components/auth/LoginScreen';
 import { SignUpScreen } from './components/auth/SignUpScreen';
 import { RoleAssignedConflict } from './components/auth/RoleAssignedConflict';
 import { ScanUpiQrModal } from './components/ScanUpiQrModal';
-import { AddUpiModal, SavedUpi } from './components/AddUpiModal';
+import { AddUpiModal } from './components/AddUpiModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { InstallApp } from './components/InstallApp';
 import { Modal } from './components/Modal';
@@ -142,14 +144,46 @@ export default function App() {
   };
 
   const [isAppointmentDismissed, setIsAppointmentDismissed] = useState(false);
-  const [salons] = useState<Salon[]>(MOCK_SALONS);
-  const [selectedSalon, setSelectedSalon] = useState<Salon>(MOCK_SALONS[0]);
-  const [selectedServices, setSelectedServices] = useState<Service[]>([
-    MOCK_SALONS[0].services[0],
-  ]);
-  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(
-    MOCK_SALONS[0].staff[0] || null
-  );
+
+  // Live salon catalog — replaces the old MOCK_SALONS constant. Salons come
+  // from the shared Supabase project (approved/published shops only).
+  const [salons, setSalons] = useState<Salon[]>([]);
+  const [catalogState, setCatalogState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [catalogError, setCatalogError] = useState<string>('');
+  const [selectedSalon, setSelectedSalon] = useState<Salon | null>(null);
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+
+  const loadSalonCatalog = async () => {
+    if (!supabase) {
+      setCatalogState('error');
+      setCatalogError('Supabase is not configured.');
+      return;
+    }
+    setCatalogState('loading');
+    setCatalogError('');
+    try {
+      const live = await fetchPublicSalons(supabase);
+      setSalons(live);
+      setCatalogState('ready');
+    } catch (err: any) {
+      console.error('Failed to load salon catalog:', err);
+      setCatalogState('error');
+      setCatalogError(err?.message || 'Could not load salons. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setSalons([]);
+      setCatalogState('loading');
+      return;
+    }
+    void loadSalonCatalog();
+    // One-time import of pre-integration localStorage data, then purge.
+    if (supabase) void runLegacyMigrationOnce(supabase, user.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const [userLocation, setUserLocation] = useState<UserLocation>(() => {
     const saved = localStorage.getItem('nexora_user_location');
@@ -172,7 +206,7 @@ export default function App() {
         console.error('Failed to parse favorites:', e);
       }
     }
-    return ['aura-premium', 'glam-room'];
+    return [];
   });
 
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
@@ -184,7 +218,7 @@ export default function App() {
         console.error('Failed to parse recently viewed:', e);
       }
     }
-    return ['aura-premium', 'glam-room'];
+    return [];
   });
 
   useEffect(() => {
@@ -200,28 +234,7 @@ export default function App() {
         console.error('Failed to parse favorite professionals:', e);
       }
     }
-    return [
-      {
-        id: 'pro-1',
-        salonId: 'aura-premium',
-        name: 'Maya S.',
-        role: 'Senior Hair Stylist',
-        rating: 4.9,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        salonName: 'Aura Premium Salon',
-        skills: ['Haircut', 'Balayage', 'Coloring']
-      },
-      {
-        id: 'pro-2',
-        salonId: 'glam-room',
-        name: 'Arjun K.',
-        role: 'Master Grooming Expert',
-        rating: 4.8,
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        salonName: 'The Glam Room',
-        skills: ['Beard Styling', 'Fade Haircut']
-      }
-    ];
+    return [];
   });
 
   const [favoriteServices, setFavoriteServices] = useState<SavedService[]>(() => {
@@ -233,26 +246,7 @@ export default function App() {
         console.error('Failed to parse favorite services:', e);
       }
     }
-    return [
-      {
-        id: 'srv-1',
-        salonId: 'aura-premium',
-        name: "Woman's Haircut & Blowdry",
-        durationMinutes: 45,
-        price: 899,
-        salonName: 'Aura Premium Salon',
-        category: 'Hair Styling'
-      },
-      {
-        id: 'srv-2',
-        salonId: 'luxe-spa',
-        name: 'Deep Cleansing Facial Glow',
-        durationMinutes: 60,
-        price: 1499,
-        salonName: 'Luxe Botanicals & Spa',
-        category: 'Skincare'
-      }
-    ];
+    return [];
   });
 
   const [bookings, setBookings] = useState<Booking[]>(() => {
@@ -265,7 +259,7 @@ export default function App() {
         console.error('Failed to parse saved bookings:', e);
       }
     }
-    return INITIAL_BOOKINGS;
+    return [];
   });
 
   const [confirmedModalBooking, setConfirmedModalBooking] = useState<Booking | null>(null);
@@ -281,20 +275,7 @@ export default function App() {
         console.error('Failed to parse notifications:', e);
       }
     }
-    return [
-      {
-        id: 'notif-init-1',
-        bookingId: 'bk-101',
-        salonName: 'Aura Premium Salon',
-        timeSlot: '11:00 AM',
-        dateStr: 'Sat, 28 Jul',
-        servicesSummary: 'Balayage & Hair Styling',
-        timestamp: Date.now() - 300000,
-        read: false,
-        type: 'reminder_1h',
-        message: 'Your appointment at Aura Premium Salon starts in 1 hour at 11:00 AM!',
-      },
-    ];
+    return [];
   });
 
   const [activePushOverlay, setActivePushOverlay] = useState<AppNotification | null>(null);
@@ -629,24 +610,20 @@ export default function App() {
     );
   };
 
+  // Persist a review to Supabase (customer_reviews). Idempotent by review id;
+  // degrades to session-only if the table is not provisioned yet.
   const handleAddReviewFromBooking = (salonId: string, newRev: Omit<ServiceReview, 'id' | 'date'>) => {
-    const storageKey = `nexora_service_reviews_${salonId}`;
-    const saved = localStorage.getItem(storageKey);
-    let currentReviews: ServiceReview[] = [];
-    if (saved) {
-      try {
-        currentReviews = JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
     const created: ServiceReview = {
       ...newRev,
-      id: `sr-${Date.now()}`,
+      salonId,
+      id: `sr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       date: 'Just now',
     };
-    const updatedReviews = [created, ...currentReviews];
-    localStorage.setItem(storageKey, JSON.stringify(updatedReviews));
+    if (supabase && user) {
+      void saveReview(supabase, user.id, created).catch((err) =>
+        console.warn('Review could not be saved to Supabase:', err),
+      );
+    }
   };
 
   const handleSnoozeNotification = (id: string) => {
@@ -784,6 +761,34 @@ export default function App() {
     );
   }
 
+  // Live catalog gate — wait for Supabase salon data before showing the app.
+  if (catalogState === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#fff8f8] text-[#26181c] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 border-4 border-[#e6007e]/20 border-t-[#e6007e] rounded-full animate-spin mb-4" />
+        <p className="text-sm font-bold text-[#8e004b]">Loading salons near you...</p>
+      </div>
+    );
+  }
+
+  if (catalogState === 'error') {
+    return (
+      <div className="min-h-screen bg-[#fff8f8] text-[#26181c] flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+          <span className="material-symbols-outlined mb-3 text-4xl text-rose-600">cloud_off</span>
+          <h1 className="mb-2 text-xl font-bold">Could not load salons</h1>
+          <p className="text-sm leading-6 text-[#5a3f47]">{catalogError}</p>
+          <button
+            onClick={() => void loadSalonCatalog()}
+            className="mt-4 h-11 px-6 rounded-xl bg-[#e6007e] text-white text-xs font-bold hover:bg-[#b90064] transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fff8f8] text-[#26181c] font-['Inter',sans-serif] relative flex flex-col justify-between">
       {/* Floating Interactive Push Notification Overlay */}
@@ -893,9 +898,10 @@ export default function App() {
             />
           )}
 
-          {currentScreen === 'salon-detail' && (
+          {currentScreen === 'salon-detail' && selectedSalon && (
             <SalonDetailScreen
               salon={selectedSalon}
+              userId={user?.id}
               selectedServices={selectedServices}
               selectedStaff={selectedStaff}
               onToggleService={handleToggleService}
@@ -908,7 +914,7 @@ export default function App() {
             />
           )}
 
-          {currentScreen === 'checkout' && (
+          {currentScreen === 'checkout' && selectedSalon && (
             <CheckoutScreen
               salon={selectedSalon}
               selectedServices={selectedServices}
@@ -1037,9 +1043,13 @@ export default function App() {
         isOpen={isGlobalScanQrOpen}
         onClose={() => setIsGlobalScanQrOpen(false)}
         onUpiScanned={(scannedUpi) => {
-          const saved = localStorage.getItem('nexora_saved_upis');
-          const list: SavedUpi[] = saved ? JSON.parse(saved) : [];
-          localStorage.setItem('nexora_saved_upis', JSON.stringify([scannedUpi, ...list]));
+          // Persist to Supabase saved_payment_methods (ProfileScreen loads from there).
+          if (supabase && user) {
+            const { id: _id, ...rest } = scannedUpi;
+            void addUpiMethod(supabase, user.id, rest).catch((err) =>
+              console.warn('Scanned UPI could not be saved to Supabase:', err),
+            );
+          }
           setIsGlobalScanQrOpen(false);
           setCurrentScreen('profile');
         }}
@@ -1063,9 +1073,13 @@ export default function App() {
           setIsGlobalScanQrOpen(true);
         }}
         onUpiAdded={(newUpi) => {
-          const saved = localStorage.getItem('nexora_saved_upis');
-          const list: SavedUpi[] = saved ? JSON.parse(saved) : [];
-          localStorage.setItem('nexora_saved_upis', JSON.stringify([newUpi, ...list]));
+          // Persist to Supabase saved_payment_methods (ProfileScreen loads from there).
+          if (supabase && user) {
+            const { id: _id, ...rest } = newUpi;
+            void addUpiMethod(supabase, user.id, rest).catch((err) =>
+              console.warn('UPI could not be saved to Supabase:', err),
+            );
+          }
           setIsGlobalAddUpiOpen(false);
           setGlobalPrefilledUpi('');
           setCurrentScreen('profile');

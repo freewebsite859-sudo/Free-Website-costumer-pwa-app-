@@ -19,7 +19,7 @@ export const ServiceReviewModal: React.FC<ServiceReviewModalProps> = ({
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
-  const [author, setAuthor] = useState<string>(() => localStorage.getItem('profile_name') || 'Priya Sharma');
+  const [author, setAuthor] = useState<string>(() => localStorage.getItem('profile_name') || 'Verified Customer');
   const [comment, setComment] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [submittedSuccess, setSubmittedSuccess] = useState<boolean>(false);

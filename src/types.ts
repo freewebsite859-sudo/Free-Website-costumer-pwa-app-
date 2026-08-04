@@ -146,6 +146,7 @@ export interface ServiceReview {
   date: string;
   comment: string;
   verifiedBooking?: boolean;
+  bookingId?: string;
 }
 
 export interface WaitlistEntry {

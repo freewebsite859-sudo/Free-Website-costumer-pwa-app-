@@ -4,9 +4,13 @@ import { ServiceReviewModal } from './ServiceReviewModal';
 import { WaitlistModal } from './WaitlistModal';
 import { MiniCalendar } from './MiniCalendar';
 import { ServiceItemSkeleton, Skeleton } from './Skeleton';
+import { supabase } from '../lib/supabaseClient';
+import { loadReviews, saveReview } from '../lib/reviewsRepository';
 
 interface SalonDetailScreenProps {
   salon: Salon;
+  /** Logged-in customer id — reviews are stored per user in Supabase. */
+  userId?: string;
   selectedServices: Service[];
   selectedStaff: Staff | null;
   onToggleService: (service: Service) => void;
@@ -18,35 +22,9 @@ interface SalonDetailScreenProps {
   bookings: Booking[];
 }
 
-const DEFAULT_STYLISTS: Staff[] = [
-  {
-    id: 's1',
-    name: 'Maya S.',
-    role: 'Senior Stylist',
-    rating: 4.9,
-    reviewsCount: 84,
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB6FnEPu-SL4wCFVKcdUT8T3HAr4WTtQffHbnb-a1Q_KHmwlXmuuMexI_oX7VO3Ck7qecdPxZscnfPyNFROadrFDvlkX2aKpGC7DKv8u_kCOn8d2MGCISl3rqUL79jDHNAaMeiBfwgEUSzl-uZoz702Y0_08nr4fJCuUBFEAasK6fvfIalsfNsECYrq-GqF_jzTRNgR4lOYUXXnfcExQ5qPrfu7Tw6Sle-tPP-le3KXO-hb9dwZ-x-2wkRrIieKF0Y75ikYZ-xFPME',
-  },
-  {
-    id: 's2',
-    name: 'David L.',
-    role: 'Color Specialist',
-    rating: 4.8,
-    reviewsCount: 62,
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAym-1XqNvvUES_juaNcLK1p8qid6RxJWHmLyEsIlb7AZSTPL3DCcTaY--lrpsKfwZwtjvl2FDo7LyVmLuDZb5KGoPI2DvOGefWFzVJnsIXTM2NkLwCvN_xGTXmI3_23Le-KpVYYx4qmB4kzK9QGaBpL0uNx2cigDOD6i19c0NbGXmLIMKy3m7bC9xhY50Odkqojhl7HF4nT9FrV_K_3UJKBBfiUTYnIcThOzvvmaz4DyrB8m0nL0W3-kL4DbP7Oyz_grSdxlUlWHQ',
-  },
-  {
-    id: 's3',
-    name: 'Sarah K.',
-    role: 'Esthetician',
-    rating: 5.0,
-    reviewsCount: 120,
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB9RAhukgBLye8hQOojgrb3bjsb6PQ_GhdMufuidFvlJqxVZ_xINH0Fdc1_s8l0aKXMACAyJMrQquxZKVQXPbcPnysxo2AAatGH3nEL1rVhgI_0bjqpB9KoTtaO7uJwL42BWgx9jqqZT8lTENQn-lR5HjKB-qPHz60CkRRmoz6LOby9AqVT6YTIEvV8qGyGrD_9L7ajxDuE2iRaPMw8FOg6RbQvHBxMhsSz267is5uVRucT7hdBBpbaVJ93mQq5R3csJlGGpBtEazk',
-  },
-];
-
 export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   salon,
+  userId,
   selectedServices,
   selectedStaff,
   onToggleService,
@@ -57,16 +35,8 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   onToggleFavorite,
   bookings,
 }) => {
-  const availableStaff = React.useMemo(() => {
-    if (salon.staff && salon.staff.length >= 3) {
-      return salon.staff;
-    }
-    const existing = salon.staff || [];
-    const needed = DEFAULT_STYLISTS.filter(
-      (ds) => !existing.some((e) => e.name.toLowerCase().includes(ds.name.split(' ')[0].toLowerCase()) || e.id === ds.id)
-    );
-    return [...existing, ...needed].slice(0, 3);
-  }, [salon.staff]);
+  // Real staff only — no fake padding stylists.
+  const availableStaff = React.useMemo(() => salon.staff || [], [salon.staff]);
 
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
@@ -215,76 +185,46 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
     setWaitlistEntries((prev) => prev.filter((e) => e.id !== entryId));
   };
 
-  const [serviceReviews, setServiceReviews] = useState<ServiceReview[]>(() => {
-    const saved = localStorage.getItem(`nexora_service_reviews_${salon.id}`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved reviews', e);
-      }
-    }
-
-    // Default mock reviews for this salon
-    const defaultSvc0 = salon.services[0]?.name || 'Balayage & Hair Styling';
-    const defaultSvc1 = salon.services[1]?.name || 'Kerastase Hair Spa';
-    const defaultSvc2 = salon.services[2]?.name || 'Organic Hydra Facial';
-
-    return [
-      {
-        id: 'sr-1',
-        salonId: salon.id,
-        serviceName: defaultSvc0,
-        author: 'Ananya Sharma',
-        rating: 5,
-        date: '2 days ago',
-        comment: 'The balayage shade turned out exactly as I envisioned! Gentle bleaching technique with zero brassiness.',
-        verifiedBooking: true,
-      },
-      {
-        id: 'sr-2',
-        salonId: salon.id,
-        serviceName: defaultSvc1,
-        author: 'Priya Mehta',
-        rating: 5,
-        date: '1 week ago',
-        comment: 'Deep scalp massager and steaming treatment was immensely relaxing. My hair feels 10x softer.',
-        verifiedBooking: true,
-      },
-      {
-        id: 'sr-3',
-        salonId: salon.id,
-        serviceName: defaultSvc2,
-        author: 'Rhea Sen',
-        rating: 4.8,
-        date: '2 weeks ago',
-        comment: 'Thorough blackhead extraction and cold-hammer massage. Face is glowing without any redness.',
-        verifiedBooking: true,
-      },
-      {
-        id: 'sr-4',
-        salonId: salon.id,
-        serviceName: defaultSvc0,
-        author: 'Divya Kapoor',
-        rating: 4.9,
-        date: '3 weeks ago',
-        comment: 'Professional colorist who took time to understand my skin tone before recommending the caramel highlights.',
-        verifiedBooking: true,
-      },
-    ];
-  });
+  // Real reviews from Supabase (customer_reviews) — no fake seed reviews.
+  const [serviceReviews, setServiceReviews] = useState<ServiceReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    localStorage.setItem(`nexora_service_reviews_${salon.id}`, JSON.stringify(serviceReviews));
-  }, [serviceReviews, salon.id]);
+    let cancelled = false;
+    const fetchReviews = async () => {
+      if (!supabase || !userId) {
+        setServiceReviews([]);
+        return;
+      }
+      setReviewsLoading(true);
+      try {
+        const all = await loadReviews(supabase, userId);
+        if (!cancelled) setServiceReviews(all.filter((r) => r.salonId === salon.id));
+      } catch (err) {
+        console.warn('Reviews could not be loaded from Supabase:', err);
+        if (!cancelled) setServiceReviews([]);
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    };
+    void fetchReviews();
+    return () => {
+      cancelled = true;
+    };
+  }, [salon.id, userId]);
 
   const handleAddReview = (newRev: Omit<ServiceReview, 'id' | 'date'>) => {
     const created: ServiceReview = {
       ...newRev,
-      id: `sr-${Date.now()}`,
+      id: `sr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       date: 'Just now',
     };
     setServiceReviews((prev) => [created, ...prev]);
+    if (supabase && userId) {
+      void saveReview(supabase, userId, created).catch((err) =>
+        console.warn('Review could not be saved to Supabase:', err),
+      );
+    }
   };
 
   const openReviewForService = (serviceId?: string) => {
@@ -296,7 +236,7 @@ export const SalonDetailScreen: React.FC<SalonDetailScreenProps> = ({
   const getServiceStats = (serviceName: string) => {
     const matching = serviceReviews.filter((r) => r.serviceName.toLowerCase() === serviceName.toLowerCase());
     if (matching.length === 0) {
-      return { rating: 4.8, count: 5 }; // fallback baseline
+      return { rating: 0, count: 0 }; // no fabricated scores — UI shows "New/No reviews"
     }
     const sum = matching.reduce((acc, r) => acc + r.rating, 0);
     const avg = (sum / matching.length).toFixed(1);
