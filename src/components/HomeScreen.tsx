@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Salon, Screen, UserLocation, Booking } from '../types';
-import { BANNER_URL, INITIAL_BOOKINGS } from '../data/mockData';
+import { BANNER_URL } from '../data/mockData';
 import { SalonCardSkeleton } from './Skeleton';
 import { OfflineDashboardCard } from './OfflineDashboardCard';
 import { SmartSearchFilterBar } from './SmartSearchFilterBar';
@@ -108,7 +108,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     } catch (e) {
       console.error('Failed reading bookings', e);
     }
-    return INITIAL_BOOKINGS;
+    return [];
   }, [bookings]);
 
   // Analysis Logic Block 1: Frequent Services from User Booking History

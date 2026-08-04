@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { AVATAR_URL } from '../data/mockData';
 import { Screen, UserLocation, Booking, Address } from '../types';
+import { supabase } from '../lib/supabaseClient';
+import {
+  loadPaymentMethods,
+  addUpiMethod,
+  addCardMethod,
+  deletePaymentMethod,
+} from '../lib/paymentMethodsRepository';
+import { submitFeedback } from '../lib/supportRepository';
 import { AddCardModal, SavedCard } from './AddCardModal';
 import { AddUpiModal, SavedUpi } from './AddUpiModal';
 import { ScanUpiQrModal } from './ScanUpiQrModal';
@@ -99,121 +107,77 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [prefilledUpiInput, setPrefilledUpiInput] = useState<string>('');
 
-  const [savedCards, setSavedCards] = useState<SavedCard[]>(() => {
-    const saved = localStorage.getItem('nexora_saved_cards');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved cards:', e);
-      }
-    }
-    return [
-      {
-        id: 'card-1',
-        cardNumber: '•••• •••• •••• 4242',
-        cardHolder: 'PRIYA SHARMA',
-        expiry: '12/26',
-        network: 'visa',
-        isPrimary: true,
-      },
-      {
-        id: 'card-2',
-        cardNumber: '•••• •••• •••• 8810',
-        cardHolder: 'PRIYA SHARMA',
-        expiry: '09/25',
-        network: 'mastercard',
-        isPrimary: false,
-      },
-    ];
-  });
+  // Saved payment methods live in Supabase (saved_payment_methods).
+  const [paymentUserId, setPaymentUserId] = useState<string | null>(null);
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [savedUpis, setSavedUpis] = useState<SavedUpi[]>([]);
 
-  const [savedUpis, setSavedUpis] = useState<SavedUpi[]>(() => {
-    const saved = localStorage.getItem('nexora_saved_upis');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved upis:', e);
-      }
+  const refreshPaymentMethods = async () => {
+    if (!supabase) return;
+    try {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id ?? null;
+      setPaymentUserId(uid);
+      if (!uid) return;
+      const { upis, cards } = await loadPaymentMethods(supabase, uid);
+      setSavedUpis(upis);
+      setSavedCards(cards);
+    } catch (err) {
+      console.warn('Payment methods could not be loaded from Supabase:', err);
     }
-    return [
-      {
-        id: 'upi-qr-1',
-        upiId: 'amelia.stratton@okicici',
-        name: 'Amelia Stratton',
-        provider: 'okicici',
-        isVerified: true,
-        isQrScanned: true,
-        scannedAt: 'Today, 2:15 PM',
-      },
-      {
-        id: 'upi-qr-2',
-        upiId: 'nexora.salon@paytm',
-        name: 'Nexora Salon Payments',
-        provider: 'paytm',
-        isVerified: true,
-        isQrScanned: true,
-        scannedAt: 'Yesterday',
-      },
-      {
-        id: 'upi-1',
-        upiId: 'amelia.strat@okaxis',
-        name: 'Amelia Stratton',
-        provider: 'okaxis',
-        isVerified: true,
-        isQrScanned: false,
-      },
-      {
-        id: 'upi-2',
-        upiId: '9876543210@paytm',
-        name: 'Amelia Stratton',
-        provider: 'paytm',
-        isVerified: true,
-        isQrScanned: false,
-      },
-    ];
-  });
+  };
 
-  // Reload saved upis when payment methods open
   useEffect(() => {
-    if (isPaymentMethodsOpen) {
-      const saved = localStorage.getItem('nexora_saved_upis');
-      if (saved) {
-        try {
-          setSavedUpis(JSON.parse(saved));
-        } catch (e) {
-          console.warn('Failed to parse saved upis:', e);
-        }
-      }
-    }
+    void refreshPaymentMethods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload payment methods when the panel opens (catches UPIs added via the
+  // global QR scanner while this screen was not mounted).
+  useEffect(() => {
+    if (isPaymentMethodsOpen) void refreshPaymentMethods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPaymentMethodsOpen]);
 
   const handleCardAdded = (newCard: SavedCard) => {
-    const updated = [newCard, ...savedCards];
-    setSavedCards(updated);
-    localStorage.setItem('nexora_saved_cards', JSON.stringify(updated));
+    setSavedCards((prev) => [newCard, ...prev]);
+    if (supabase && paymentUserId) {
+      const { id: _id, ...rest } = newCard;
+      void addCardMethod(supabase, paymentUserId, rest)
+        .then(() => refreshPaymentMethods())
+        .catch((err) => console.warn('Card could not be saved to Supabase:', err));
+    }
     triggerToast('Card saved successfully!');
   };
 
   const handleDeleteCard = (cardId: string) => {
-    const updated = savedCards.filter((c) => c.id !== cardId);
-    setSavedCards(updated);
-    localStorage.setItem('nexora_saved_cards', JSON.stringify(updated));
+    setSavedCards((prev) => prev.filter((c) => c.id !== cardId));
+    if (supabase && !cardId.startsWith('card-local')) {
+      void deletePaymentMethod(supabase, cardId).catch((err) =>
+        console.warn('Card could not be removed from Supabase:', err),
+      );
+    }
     triggerToast('Card removed');
   };
 
   const handleUpiAdded = (newUpi: SavedUpi) => {
-    const updated = [newUpi, ...savedUpis];
-    setSavedUpis(updated);
-    localStorage.setItem('nexora_saved_upis', JSON.stringify(updated));
+    setSavedUpis((prev) => [newUpi, ...prev]);
+    if (supabase && paymentUserId) {
+      const { id: _id, ...rest } = newUpi;
+      void addUpiMethod(supabase, paymentUserId, rest)
+        .then(() => refreshPaymentMethods())
+        .catch((err) => console.warn('UPI could not be saved to Supabase:', err));
+    }
     triggerToast('UPI ID linked successfully!');
   };
 
   const handleDeleteUpi = (upiId: string) => {
-    const updated = savedUpis.filter((u) => u.id !== upiId);
-    setSavedUpis(updated);
-    localStorage.setItem('nexora_saved_upis', JSON.stringify(updated));
+    setSavedUpis((prev) => prev.filter((u) => u.id !== upiId));
+    if (supabase && !upiId.startsWith('upi-local')) {
+      void deletePaymentMethod(supabase, upiId).catch((err) =>
+        console.warn('UPI could not be removed from Supabase:', err),
+      );
+    }
     triggerToast('UPI ID removed');
   };
 
@@ -226,20 +190,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       triggerToast('Please select a star rating.');
       return;
     }
-    // Simple local storage persistence
-    const newFeedback = {
-      id: Date.now(),
-      rating: feedbackRating,
-      text: feedbackText,
-      date: new Date().toISOString()
-    };
-    let existing = [];
-    try {
-      existing = JSON.parse(localStorage.getItem('nexora_feedback') || '[]');
-    } catch (e) {
-      console.error('Failed to parse feedback:', e);
+    // Persist to Supabase customer_feedback (per-user app feedback).
+    if (supabase && paymentUserId) {
+      void submitFeedback(supabase, paymentUserId, feedbackRating, feedbackText)
+        .catch((err) => console.warn('Feedback could not be saved to Supabase:', err));
     }
-    localStorage.setItem('nexora_feedback', JSON.stringify([newFeedback, ...existing]));
 
     setIsFeedbackOpen(false);
     setFeedbackRating(0);

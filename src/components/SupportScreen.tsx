@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
+import { supabase } from '../lib/supabaseClient';
+import {
+  loadSupportTickets,
+  createSupportTicket,
+  submitFeedback,
+  SupportTicket as ServerTicket,
+} from '../lib/supportRepository';
 
 interface SupportScreenProps {
   onBack: () => void;
@@ -21,6 +28,28 @@ interface SupportTicket {
   messages: TicketMessage[];
 }
 
+const formatDate = (iso: string): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const mapServerTicket = (row: ServerTicket): SupportTicket => {
+  const status: 'OPEN' | 'RESOLVED' =
+    String(row.status).toLowerCase() === 'resolved' ? 'RESOLVED' : 'OPEN';
+  return {
+    id: row.id,
+    subject: row.subject,
+    category: row.category,
+    status,
+    date: formatDate(row.createdAt),
+    messages: row.description
+      ? [{ sender: 'user', text: row.description, time: formatDate(row.createdAt) }]
+      : [],
+  };
+};
+
 export const SupportScreen: React.FC<SupportScreenProps> = ({
   onBack,
   onNavigate,
@@ -35,83 +64,80 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
   const [newSubject, setNewSubject] = useState('');
   const [newCategory, setNewCategory] = useState('Booking');
   const [newDescription, setNewDescription] = useState('');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
+
+  // App feedback (customer_feedback)
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   // Ticket detail reply input state
   const [replyText, setReplyText] = useState('');
 
-  // Loaded/saved tickets
-  const [tickets, setTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem('nexora_support_tickets');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
+  // Real tickets from Supabase support_tickets (created_by = this customer).
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      if (!supabase) {
+        setTicketsLoading(false);
+        return;
       }
-    }
-    return [
-      {
-        id: 'NX-TK-105',
-        subject: 'Reschedule slot issues',
-        category: 'Booking',
-        status: 'OPEN',
-        date: 'Jul 24, 2026',
-        messages: [
-          {
-            sender: 'user',
-            text: 'I scheduled a Balayage treatment at Aura Premium Salon for tomorrow at 11:00 AM, but I need to push it to 2:00 PM. The app says the slot is occupied but the salon is empty.',
-            time: 'Jul 24, 04:00 PM',
-          },
-          {
-            sender: 'executive',
-            text: 'Hi Priya! Let me check the real-time availability of Aura Premium Salon. We are seeing a block on their end, but let me call them directly to open up the 2:00 PM slot for you.',
-            time: 'Jul 24, 04:15 PM',
-          },
-        ],
-      },
-      {
-        id: 'NX-TK-104',
-        subject: 'Double payment for Aura Booking',
-        category: 'Payment',
-        status: 'RESOLVED',
-        date: 'Jul 23, 2026',
-        messages: [
-          {
-            sender: 'user',
-            text: 'Hey, my transaction failed on the first try but the money was deducted. I had to pay again to confirm the appointment. Please refund the first transaction.',
-            time: 'Jul 23, 10:15 AM',
-          },
-          {
-            sender: 'executive',
-            text: 'Hi Priya, we are extremely sorry for the inconvenience. We have verified the duplicate payment of ₹1,499 in our systems. We have initiated an automatic refund to your source account. It should reflect in your bank account in 3-5 business days.',
-            time: 'Jul 23, 11:30 AM',
-          },
-          {
-            sender: 'user',
-            text: 'Awesome, thank you for the speedy response!',
-            time: 'Jul 23, 11:45 AM',
-          },
-          {
-            sender: 'executive',
-            text: 'You are very welcome, Priya! I will mark this ticket as resolved. Feel free to open a new one if you have any other questions. Have a fabulous salon session!',
-            time: 'Jul 23, 12:00 PM',
-          },
-        ],
-      },
-    ];
-  });
+      try {
+        const { data } = await supabase.auth.getUser();
+        const uid = data.user?.id ?? null;
+        if (cancelled) return;
+        setUserId(uid);
+        if (!uid) {
+          setTicketsLoading(false);
+          return;
+        }
+        const rows = await loadSupportTickets(supabase, uid);
+        if (!cancelled) setTickets(rows.map(mapServerTicket));
+      } catch (err) {
+        console.warn('Support tickets could not be loaded from Supabase:', err);
+      } finally {
+        if (!cancelled) setTicketsLoading(false);
+      }
+    };
+    void init();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Track expanded FAQ items
   const [expandedFaqIndex, setExpandedFaqIndex] = useState<number | null>(null);
 
-  // Sync tickets to localStorage
-  useEffect(() => {
-    localStorage.setItem('nexora_support_tickets', JSON.stringify(tickets));
-  }, [tickets]);
-
   const triggerToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!supabase || !userId) {
+      triggerToast('Please sign in to share feedback.');
+      return;
+    }
+    if (feedbackRating === 0 && !feedbackMessage.trim()) {
+      triggerToast('Add a rating or a message first.');
+      return;
+    }
+    setSubmittingFeedback(true);
+    try {
+      await submitFeedback(supabase, userId, feedbackRating, feedbackMessage);
+      setFeedbackRating(0);
+      setFeedbackMessage('');
+      triggerToast('Thank you! Your feedback was sent to the Nexora team.');
+    } catch (err) {
+      console.warn('Feedback could not be submitted:', err);
+      triggerToast('Feedback could not be sent. Please try again.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
   };
 
   const FAQS = [
@@ -167,47 +193,47 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubject.trim() || !newDescription.trim()) {
       triggerToast('Please fill in all ticket details.');
       return;
     }
+    if (!supabase || !userId) {
+      triggerToast('Please sign in to create a support ticket.');
+      return;
+    }
 
-    const newTicket: SupportTicket = {
-      id: `NX-TK-${Math.floor(100 + Math.random() * 900)}`,
-      subject: newSubject,
-      category: newCategory,
-      status: 'OPEN',
-      date: 'Just now',
-      messages: [
-        {
-          sender: 'user',
-          text: newDescription,
-          time: 'Just now',
-        },
-        {
-          sender: 'executive',
-          text: `Hi Priya! Thank you for raising this. We have registered your ticket under category "${newCategory}" and our customer service specialist has been assigned to help you with "${newSubject}". We will review and reply within 15 minutes!`,
-          time: 'Just now',
-        },
-      ],
-    };
-
-    setTickets((prev) => [newTicket, ...prev]);
-    setNewSubject('');
-    setNewDescription('');
-    triggerToast('Support Ticket Created!');
-    setActiveTab('my-tickets');
+    setSubmittingTicket(true);
+    try {
+      const created = await createSupportTicket(supabase, userId, {
+        subject: newSubject,
+        category: newCategory,
+        description: newDescription,
+      });
+      setTickets((prev) => [mapServerTicket(created), ...prev]);
+      setNewSubject('');
+      setNewDescription('');
+      triggerToast('Support ticket created! Our team will get back to you.');
+      setActiveTab('my-tickets');
+    } catch (err) {
+      console.warn('Ticket could not be created:', err);
+      triggerToast('Ticket could not be created. Please try again.');
+    } finally {
+      setSubmittingTicket(false);
+    }
   };
 
+  // Replies are appended to the open conversation view. The shared backend
+  // stores the ticket (subject/category/status) — full agent threading is a
+  // backend feature request, so no fake agent replies are simulated.
   const handleSendReply = () => {
     if (!replyText.trim() || !selectedTicket) return;
 
     const updatedMessage: TicketMessage = {
       sender: 'user',
       text: replyText,
-      time: 'Just now',
+      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     };
 
     const updatedTickets = tickets.map((t) => {
@@ -231,35 +257,6 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
         messages: [...prev.messages, updatedMessage],
       };
     });
-
-    // Simulate agent auto-reply
-    setTimeout(() => {
-      const systemReply: TicketMessage = {
-        sender: 'executive',
-        text: "Thanks for the update. I'm actively reviewing your message and will provide an update shortly. Your convenience is our highest priority!",
-        time: 'Just now',
-      };
-
-      setTickets((prevTickets) =>
-        prevTickets.map((t) => {
-          if (t.id === selectedTicket.id) {
-            return {
-              ...t,
-              messages: [...t.messages, systemReply],
-            };
-          }
-          return t;
-        })
-      );
-
-      setSelectedTicket((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, systemReply],
-        };
-      });
-    }, 1500);
   };
 
   const getCategoryIcon = (cat: string) => {
@@ -477,6 +474,51 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
                 </button>
               </div>
 
+              {/* Rate your experience — stored in customer_feedback */}
+              <div className="px-page-margin-mobile mb-stack-lg">
+                <div className="bg-surface-container-lowest rounded-[18px] shadow-sm border border-[#e8e8e8] p-4 flex flex-col gap-3">
+                  <h3 className="font-title-md text-title-md text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary-pink">thumb_up</span>
+                    Rate your app experience
+                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFeedbackRating(star)}
+                        aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                        className="cursor-pointer transition-transform active:scale-90"
+                      >
+                        <span
+                          className={`material-symbols-outlined text-[28px] ${
+                            star <= feedbackRating ? 'text-amber-500' : 'text-slate-300'
+                          }`}
+                          style={{ fontVariationSettings: star <= feedbackRating ? "'FILL' 1" : undefined }}
+                        >
+                          star
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.target.value)}
+                    placeholder="Optional: tell us what we can improve..."
+                    rows={2}
+                    className="w-full bg-white rounded-xl p-3 border border-[#e8e8e8] text-xs text-on-surface focus:outline-none focus:border-[#e6007e] transition-colors resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSubmitFeedback()}
+                    disabled={submittingFeedback}
+                    className="self-end h-10 px-5 bg-[#ffe8ed] text-[#e6007e] font-bold text-xs rounded-xl hover:bg-[#ffd9e2] transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {submittingFeedback ? 'Sending...' : 'Send Feedback'}
+                  </button>
+                </div>
+              </div>
+
               {/* FAQs Accordion */}
               <div className="px-page-margin-mobile">
                 <h3 className="font-title-md text-title-md text-on-surface mb-stack-md flex items-center gap-2">
@@ -535,7 +577,12 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
                 <p className="text-[12px] text-[#5a3f47] mt-0.5">Track and respond to your active requests.</p>
               </div>
 
-              {tickets.length === 0 ? (
+              {ticketsLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-3xl border border-[#e8e8e8]">
+                  <div className="w-8 h-8 border-[3px] border-[#e6007e]/20 border-t-[#e6007e] rounded-full animate-spin mb-3" />
+                  <p className="text-xs text-[#5a3f47]">Loading your tickets...</p>
+                </div>
+              ) : tickets.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-3xl border border-[#e8e8e8]">
                   <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-[#8c7077] border border-[#e8e8e8]/50">
                     <span className="material-symbols-outlined text-[28px]">confirmation_number</span>
@@ -669,9 +716,10 @@ export const SupportScreen: React.FC<SupportScreenProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 h-12 bg-[#e6007e] hover:bg-[#b90064] text-white font-bold rounded-xl transition-colors shadow-md shadow-primary-pink/10 cursor-pointer text-xs"
+                  disabled={submittingTicket}
+                  className="flex-1 h-12 bg-[#e6007e] hover:bg-[#b90064] text-white font-bold rounded-xl transition-colors shadow-md shadow-primary-pink/10 cursor-pointer text-xs disabled:opacity-60"
                 >
-                  Submit Ticket
+                  {submittingTicket ? 'Creating ticket...' : 'Submit Ticket'}
                 </button>
               </div>
             </form>
